@@ -1,14 +1,60 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Download, FileText, Loader2, Sparkles, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  Download,
+  FileText,
+  Inbox,
+  Loader2,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 import { PROFILE_ORDER, PROFILE_THEME } from "@/lib/profiles";
 import { DEMO_HOMEWORK_TITLE } from "@/lib/demo-data";
-import type { ClassMember } from "@/lib/types";
+import type { ClassMember, Profile } from "@/lib/types";
+
+interface Returned {
+  studentId: string;
+  name: string;
+  profile: Profile;
+  submittedAt: number;
+  qa: { question: string; answer: string }[];
+}
+
+function timeAgo(ts: number): string {
+  const m = Math.round((Date.now() - ts) / 60_000);
+  if (m < 1) return "just now";
+  if (m === 1) return "1 min ago";
+  if (m < 60) return `${m} mins ago`;
+  const h = Math.round(m / 60);
+  return h === 1 ? "1 hr ago" : `${h} hrs ago`;
+}
 
 export function HomeworkPanel({ students }: { students: ClassMember[] }) {
   const [recast, setRecast] = useState<"none" | "working" | "done">("none");
   const [exported, setExported] = useState(false);
+  const [returned, setReturned] = useState<Returned[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  // Poll for hand-ins so the panel updates as students submit from their tabs.
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch("/api/submissions")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { submissions?: Returned[] } | null) => {
+          if (alive && d?.submissions) setReturned(d.submissions);
+        })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 5000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const byProfile = PROFILE_ORDER.map((p) => ({
     profile: p,
@@ -73,6 +119,66 @@ export function HomeworkPanel({ students }: { students: ClassMember[] }) {
           No homework recast for this lesson yet.
         </p>
       )}
+
+      {/* Returned homework — real hand-ins plus the seeded scripted ones. */}
+      <div>
+        <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-stone-400">
+          <Inbox size={13} aria-hidden="true" /> Returned homework · {returned.length}
+        </p>
+        {returned.length === 0 ? (
+          <p className="rounded-lg bg-stone-50 px-3 py-4 text-center text-sm text-stone-400">
+            No homework returned yet.
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {returned.map((sub) => {
+              const theme = PROFILE_THEME[sub.profile];
+              const open = openId === sub.studentId;
+              return (
+                <li key={sub.studentId} className="rounded-lg border border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(open ? null : sub.studentId)}
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                  >
+                    <span className={`h-2 w-2 rounded-full ${theme.dot}`} aria-hidden="true" />
+                    <span className="text-sm font-semibold text-stone-800">{sub.name}</span>
+                    <span className="ml-auto text-xs text-stone-400">
+                      {timeAgo(sub.submittedAt)}
+                    </span>
+                    <ChevronDown
+                      size={15}
+                      className={`text-stone-400 transition-transform ${open ? "rotate-180" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  {open && (
+                    <ol className="space-y-2 border-t border-stone-100 px-3 py-2.5">
+                      {sub.qa.map((qa, i) => (
+                        <li key={i}>
+                          <p className="text-xs font-semibold text-stone-600">
+                            {qa.question}
+                          </p>
+                          <p
+                            className={`mt-0.5 whitespace-pre-line rounded border px-2 py-1 text-sm ${
+                              qa.answer.trim()
+                                ? "border-stone-200 bg-stone-50 text-stone-800"
+                                : "border-dashed border-stone-200 text-stone-400"
+                            }`}
+                          >
+                            {qa.answer.trim() || "Not answered"}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
       <div className="mt-auto space-y-2">
         <button

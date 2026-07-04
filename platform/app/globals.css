@@ -24,6 +24,16 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Export-PDF: the student prints their reviewed answers; hide the chrome. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}
+
 /* The one typographic signature — the Recast wordmark. */
 .wordmark {
   font-family: var(--font-fraunces), Georgia, serif;

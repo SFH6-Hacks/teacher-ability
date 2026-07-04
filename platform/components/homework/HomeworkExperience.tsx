@@ -47,6 +47,30 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
   const [onBreak, setOnBreak] = useState(false); // ADHD brain-break interstitial
   const advancesRef = useRef(0);
 
+  // Answers, lifted here so they survive card navigation (cards remount per
+  // index). Keyed by card index; mcq stores the chosen option's text.
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const setAnswer = useCallback(
+    (i: number, v: string) => setAnswers((a) => ({ ...a, [i]: v })),
+    [],
+  );
+  const handleSubmit = useCallback(async () => {
+    setSubmitting(true);
+    try {
+      await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: student.id, answers }),
+      });
+    } catch {
+      // demo: the store is in-process, so this rarely fails; ignore either way
+    }
+    setSubmitting(false);
+    setSubmitted(true);
+  }, [answers, student.id]);
+
   // Session progress from the server (kept fresh from POST responses after).
   useEffect(() => {
     fetch(`/api/progress?studentId=${student.id}`)
@@ -111,19 +135,17 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
     return () => window.speechSynthesis.cancel();
   }, [theme.features.autoRead, done, index, total, deck.cards]);
 
-  // ---- Blind: announce + speak answer feedback -------------------------------
+  // ---- Blind: confirm a selection without revealing correctness --------------
   useEffect(() => {
     if (!theme.features.keyboardNav) return;
-    const onAnswer = (e: Event) => {
-      const correct = (e as CustomEvent<{ correct: boolean }>).detail?.correct;
-      const msg = correct
-        ? "Correct! Well done. Press right arrow for the next card."
-        : "Not quite. Try another option, or press h for help.";
+    const onSelected = () => {
+      const msg =
+        "Answer recorded. Press right arrow for the next card, or h for help.";
       announce(msg);
       speak(msg);
     };
-    window.addEventListener("hw:answer", onAnswer);
-    return () => window.removeEventListener("hw:answer", onAnswer);
+    window.addEventListener("hw:selected", onSelected);
+    return () => window.removeEventListener("hw:selected", onSelected);
   }, [theme.features.keyboardNav]);
 
   // ---- Blind: full keyboard navigation ---------------------------------------
@@ -188,35 +210,106 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
         {theme.features.celebrations && <CelebrationBurst fire={burst} />}
         {theme.features.keyboardNav && <Announcer />}
         <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-6 p-8 text-center">
-          {theme.features.visualFirst ? (
-            <span className="flex size-24 items-center justify-center rounded-full bg-teal-100 text-5xl">
-              🏆
-            </span>
-          ) : theme.features.celebrations ? (
-            <Trophy size={56} className="text-amber-500" aria-hidden="true" />
-          ) : (
-            <PartyPopper
-              size={48}
-              className={dark ? "text-violet-400" : "text-blue-600"}
-              aria-hidden="true"
-            />
-          )}
-          <h1 className="text-3xl font-bold">Great work, {student.name}!</h1>
-          <p className={`text-lg ${dark ? "text-neutral-300" : "text-neutral-700"}`}>
-            You worked through all {total} cards of {deck.title}.
-          </p>
-          {progress.streak > 1 && (
-            <p className="text-lg font-semibold">
-              🔥 {progress.streak} cards in a row without help — brilliant.
+          <div className="no-print flex flex-col items-center gap-4">
+            {theme.features.visualFirst ? (
+              <span className="flex size-24 items-center justify-center rounded-full bg-teal-100 text-5xl">
+                🏆
+              </span>
+            ) : theme.features.celebrations ? (
+              <Trophy size={56} className="text-amber-500" aria-hidden="true" />
+            ) : (
+              <PartyPopper
+                size={48}
+                className={dark ? "text-violet-400" : "text-blue-600"}
+                aria-hidden="true"
+              />
+            )}
+            <h1 className="text-3xl font-bold">Great work, {student.name}!</h1>
+            <p className={`text-lg ${dark ? "text-neutral-300" : "text-neutral-700"}`}>
+              You worked through all {total} cards of {deck.title}.
             </p>
-          )}
+            {progress.streak > 1 && (
+              <p className="text-lg font-semibold">
+                🔥 {progress.streak} cards in a row without help — brilliant.
+              </p>
+            )}
+          </div>
+
+          {/* Review + hand-in — also the printable area for Export PDF. */}
+          <section
+            className={`w-full rounded-2xl border p-6 text-left ${
+              dark ? "border-neutral-700 bg-neutral-900" : "border-neutral-200 bg-white"
+            }`}
+          >
+            <h2 className="mb-4 text-xl font-bold">
+              {student.name} — {deck.title}
+            </h2>
+            <ol className="space-y-4">
+              {deck.cards
+                .map((c, i) => ({ c, i }))
+                .filter(({ c }) => c.type !== "concept")
+                .map(({ c, i }, n) => {
+                  const q = c.type === "concept" ? "" : c.question;
+                  const a = (answers[i] ?? "").trim();
+                  return (
+                    <li key={i}>
+                      <p className="font-semibold">
+                        {n + 1}. {q}
+                      </p>
+                      <p
+                        className={`mt-1 whitespace-pre-line rounded-lg border px-3 py-2 text-sm ${
+                          a
+                            ? dark
+                              ? "border-neutral-700 bg-neutral-950 text-neutral-100"
+                              : "border-neutral-200 bg-neutral-50 text-neutral-800"
+                            : `border-dashed ${dark ? "border-neutral-700 text-neutral-500" : "border-neutral-300 text-neutral-400"}`
+                        }`}
+                      >
+                        {a || "Not answered yet"}
+                      </p>
+                    </li>
+                  );
+                })}
+            </ol>
+
+            <div className="no-print mt-6 flex flex-wrap items-center gap-3">
+              {!submitted ? (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className={`rounded-lg px-6 py-3 text-base font-semibold focus:outline-2 focus:outline-offset-2 disabled:opacity-60 ${theme.accent}`}
+                >
+                  {submitting ? "Submitting…" : "Submit to teacher"}
+                </button>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-2 rounded-lg bg-green-100 px-4 py-2 text-sm font-semibold text-green-900">
+                    ✓ Submitted — your teacher can see this now.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className={`rounded-lg border px-4 py-2 text-sm font-semibold focus:outline-2 focus:outline-offset-2 ${
+                      dark
+                        ? "border-neutral-600 text-neutral-100 hover:bg-neutral-800 focus:outline-violet-400"
+                        : "border-neutral-300 text-neutral-800 hover:bg-neutral-100 focus:outline-blue-600"
+                    }`}
+                  >
+                    Export PDF
+                  </button>
+                </>
+              )}
+            </div>
+          </section>
+
           <button
             type="button"
             onClick={() => {
               advancesRef.current = 0;
               goTo(1);
             }}
-            className={`rounded-lg border px-4 py-2 text-sm font-semibold focus:outline-2 focus:outline-offset-2 ${
+            className={`no-print rounded-lg border px-4 py-2 text-sm font-semibold focus:outline-2 focus:outline-offset-2 ${
               dark
                 ? "border-neutral-600 bg-neutral-900 hover:bg-neutral-800 focus:outline-violet-400"
                 : "border-neutral-300 bg-white hover:bg-neutral-100 focus:outline-blue-600"
@@ -286,6 +379,9 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
                   card={card}
                   profile={student.profile}
                   theme={theme}
+                  answer={answers[index] ?? ""}
+                  onAnswer={(v) => setAnswer(index, v)}
+                  readOnly={submitted}
                 />
               </ProfileContent>
 

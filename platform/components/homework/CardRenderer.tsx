@@ -1,16 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import {
-  BadgeCheck,
-  Check,
-  CircleHelp,
-  Lightbulb,
-  ListChecks,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { CircleHelp, Lightbulb, ListChecks } from "lucide-react";
 import type { HomeworkCard, Profile } from "@/lib/types";
 import TtsPlayer from "@/components/slides/TtsPlayer";
 import type { ProfileTheme } from "./profileTheme";
@@ -26,19 +17,15 @@ export function cardSpeechText(card: HomeworkCard): string {
         .join(". ")}`;
     case "short":
       return card.question;
+    // Steps are on-demand hints now, so read only the question aloud.
     case "steps":
-      return `${card.question}. Steps: ${card.steps.join(". ")}`;
+      return card.question;
   }
 }
 
 /** Ask the cursor companion for help with the current card. */
 function askAssistant() {
   window.dispatchEvent(new CustomEvent("assistant:ask", { detail: {} }));
-}
-
-/** Confusion-detector contract: fired whenever an MCQ option is chosen. */
-function reportAnswer(correct: boolean) {
-  window.dispatchEvent(new CustomEvent("hw:answer", { detail: { correct } }));
 }
 
 function StuckButton({ theme }: { theme: ProfileTheme }) {
@@ -59,23 +46,31 @@ function StuckButton({ theme }: { theme: ProfileTheme }) {
   );
 }
 
+interface AnswerProps {
+  answer: string;
+  onAnswer: (value: string) => void;
+  readOnly: boolean;
+}
+
 function McqCard({
   card,
   theme,
+  answer,
+  onAnswer,
+  readOnly,
 }: {
   card: Extract<HomeworkCard, { type: "mcq" }>;
   theme: ProfileTheme;
-}) {
-  const [picked, setPicked] = useState<number | null>(null);
-  const reduced = useReducedMotion();
-  const answered = picked !== null;
-  const correct = picked === card.correctIndex;
+} & AnswerProps) {
   const dark = theme.id === "blind";
-  const visual = theme.features.visualFirst;
+  const pickedIndex = card.options.indexOf(answer);
 
+  // Selection only — no correct/incorrect marking. A neutral "hw:selected"
+  // event lets the blind flow confirm the choice without revealing an answer.
   const choose = (i: number) => {
-    setPicked(i);
-    reportAnswer(i === card.correctIndex);
+    if (readOnly) return;
+    onAnswer(card.options[i]);
+    window.dispatchEvent(new CustomEvent("hw:selected"));
   };
 
   // Blind keyboard nav: HomeworkExperience dispatches "hw:choose" for keys a–d.
@@ -88,7 +83,7 @@ function McqCard({
     window.addEventListener("hw:choose", onChoose);
     return () => window.removeEventListener("hw:choose", onChoose);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card, theme.features.keyboardNav]);
+  }, [card, theme.features.keyboardNav, readOnly]);
 
   return (
     <div className="space-y-6">
@@ -97,43 +92,23 @@ function McqCard({
       </p>
       <div className="space-y-3" role="group" aria-label="Answer options">
         {card.options.map((option, i) => {
-          const isPick = picked === i;
-          const isRight = answered && i === card.correctIndex;
-          const wrongPick = isPick && !correct;
+          const isPick = pickedIndex === i;
           const base = dark
-            ? isRight
-              ? "border-green-500 bg-green-950 text-green-100"
-              : wrongPick
-                ? "border-red-500 bg-red-950 text-red-100"
-                : "border-neutral-600 bg-neutral-900 hover:border-violet-400"
-            : isRight
-              ? "border-green-700 bg-green-50"
-              : wrongPick
-                ? "border-red-700 bg-red-50"
-                : "border-neutral-300 bg-white hover:border-blue-500";
+            ? isPick
+              ? "border-violet-400 bg-neutral-800"
+              : "border-neutral-600 bg-neutral-900 hover:border-violet-400"
+            : isPick
+              ? "border-blue-600 bg-blue-50"
+              : "border-neutral-300 bg-white hover:border-blue-500";
           return (
-            <motion.button
+            <button
               key={i}
               type="button"
               data-spot={`option-${i}`}
               onClick={() => choose(i)}
               aria-pressed={isPick}
-              animate={
-                reduced || !visual
-                  ? undefined
-                  : isRight && isPick
-                    ? {
-                        boxShadow: [
-                          "0 0 0 0 rgba(34,197,94,0.7)",
-                          "0 0 0 14px rgba(34,197,94,0)",
-                        ],
-                        transition: { duration: 0.7, repeat: 1 },
-                      }
-                    : wrongPick
-                      ? { x: [0, -7, 7, -5, 5, 0], transition: { duration: 0.4 } }
-                      : undefined
-              }
-              className={`block w-full rounded-lg border-2 px-4 py-3 text-left text-base leading-relaxed focus:outline-2 focus:outline-offset-2 ${dark ? "focus:outline-violet-400" : "focus:outline-blue-600"} ${base}`}
+              disabled={readOnly}
+              className={`block w-full rounded-lg border-2 px-4 py-3 text-left text-base leading-relaxed disabled:cursor-default focus:outline-2 focus:outline-offset-2 ${dark ? "focus:outline-violet-400" : "focus:outline-blue-600"} ${base}`}
             >
               <span
                 className={`mr-2 font-mono text-sm ${dark ? "text-neutral-400" : "text-neutral-500"}`}
@@ -141,47 +116,9 @@ function McqCard({
                 {String.fromCharCode(97 + i)})
               </span>
               {option}
-              {isRight && (
-                <span
-                  className={`ml-2 inline-flex items-center gap-1 font-semibold ${dark ? "text-green-300" : "text-green-800"}`}
-                >
-                  {visual ? (
-                    <BadgeCheck size={18} aria-hidden="true" />
-                  ) : (
-                    <Check size={16} aria-hidden="true" />
-                  )}{" "}
-                  Correct
-                </span>
-              )}
-              {wrongPick && (
-                <span
-                  className={`ml-2 inline-flex items-center gap-1 font-semibold ${dark ? "text-red-300" : "text-red-800"}`}
-                >
-                  <X size={16} aria-hidden="true" /> Not quite
-                </span>
-              )}
-            </motion.button>
+            </button>
           );
         })}
-      </div>
-      <div aria-live="polite">
-        {answered && (
-          <p
-            className={`rounded-lg border-l-4 p-4 ${
-              correct
-                ? dark
-                  ? "border-green-500 bg-green-950 text-green-100"
-                  : "border-green-700 bg-green-50 text-green-900"
-                : dark
-                  ? "border-amber-500 bg-amber-950 text-amber-100"
-                  : "border-amber-600 bg-amber-50 text-amber-900"
-            }`}
-          >
-            {correct
-              ? card.explanation
-              : "Have another look — try asking the helper if you're stuck."}
-          </p>
-        )}
       </div>
     </div>
   );
@@ -190,11 +127,13 @@ function McqCard({
 function ShortCard({
   card,
   theme,
+  answer,
+  onAnswer,
+  readOnly,
 }: {
   card: Extract<HomeworkCard, { type: "short" }>;
   theme: ProfileTheme;
-}) {
-  const [answer, setAnswer] = useState("");
+} & AnswerProps) {
   const [revealed, setRevealed] = useState(false);
   const dark = theme.id === "blind";
   return (
@@ -213,51 +152,53 @@ function ShortCard({
           id="short-answer"
           data-spot="answer"
           value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
+          onChange={(e) => onAnswer(e.target.value)}
+          readOnly={readOnly}
           rows={4}
-          className={`w-full rounded-lg border p-4 text-base leading-relaxed focus:outline-2 focus:outline-offset-2 ${
+          className={`w-full rounded-lg border p-4 text-base leading-relaxed read-only:opacity-70 focus:outline-2 focus:outline-offset-2 ${
             dark
               ? "border-neutral-600 bg-neutral-950 text-neutral-50 focus:outline-violet-400"
               : "border-neutral-300 bg-white focus:outline-blue-600"
           }`}
         />
       </div>
-      {!revealed ? (
-        <button
-          type="button"
-          onClick={() => setRevealed(true)}
-          className={`rounded-lg border px-4 py-2 text-sm font-semibold focus:outline-2 focus:outline-offset-2 ${
-            dark
-              ? "border-neutral-600 bg-neutral-900 text-neutral-100 hover:bg-neutral-800 focus:outline-violet-400"
-              : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100 focus:outline-blue-600"
-          }`}
-        >
-          Check what a good answer includes
-        </button>
-      ) : (
-        <div
-          data-spot="model-points"
-          className={`rounded-lg border-l-4 p-4 ${
-            dark
-              ? "border-violet-400 bg-neutral-800 text-neutral-100"
-              : "border-blue-600 bg-blue-50"
-          }`}
-          aria-live="polite"
-        >
-          <p
-            className={`mb-2 text-sm font-semibold ${dark ? "text-violet-300" : "text-blue-900"}`}
+      {card.modelPoints.length > 0 &&
+        (!revealed ? (
+          <button
+            type="button"
+            onClick={() => setRevealed(true)}
+            className={`rounded-lg border px-4 py-2 text-sm font-semibold focus:outline-2 focus:outline-offset-2 ${
+              dark
+                ? "border-neutral-600 bg-neutral-900 text-neutral-100 hover:bg-neutral-800 focus:outline-violet-400"
+                : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100 focus:outline-blue-600"
+            }`}
           >
-            A good answer includes:
-          </p>
-          <ul
-            className={`list-disc space-y-1 pl-5 ${dark ? "text-neutral-100" : "text-blue-950"}`}
+            Give me a hint
+          </button>
+        ) : (
+          <div
+            data-spot="model-points"
+            className={`rounded-lg border-l-4 p-4 ${
+              dark
+                ? "border-violet-400 bg-neutral-800 text-neutral-100"
+                : "border-blue-600 bg-blue-50"
+            }`}
+            aria-live="polite"
           >
-            {card.modelPoints.map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+            <p
+              className={`mb-2 text-sm font-semibold ${dark ? "text-violet-300" : "text-blue-900"}`}
+            >
+              A good answer includes:
+            </p>
+            <ul
+              className={`list-disc space-y-1 pl-5 ${dark ? "text-neutral-100" : "text-blue-950"}`}
+            >
+              {card.modelPoints.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
     </div>
   );
 }
@@ -265,90 +206,76 @@ function ShortCard({
 function StepsCard({
   card,
   theme,
+  answer,
+  onAnswer,
+  readOnly,
 }: {
   card: Extract<HomeworkCard, { type: "steps" }>;
   theme: ProfileTheme;
-}) {
-  const [done, setDone] = useState<boolean[]>(() => card.steps.map(() => false));
-  const reduced = useReducedMotion();
-  const celebrate = theme.features.celebrations;
-  const nextIndex = done.findIndex((v) => !v); // "do this now" emphasis
+} & AnswerProps) {
+  // Steps are hints, revealed one at a time only when the student asks — so
+  // they get scaffolding without being handed the whole method up front.
+  const [shown, setShown] = useState(0);
   const dark = theme.id === "blind";
-
   return (
     <div className="space-y-6">
       <p data-spot="question" className="font-semibold">
         {card.question}
       </p>
-      <ol className="space-y-4">
-        {card.steps.map((step, i) => {
-          const isNext = celebrate && i === nextIndex;
-          return (
-            <li key={i} data-spot={`step-${i}`}>
-              <motion.label
-                animate={
-                  celebrate && done[i] && !reduced
-                    ? { scale: [1, 1.03, 1], transition: { duration: 0.35 } }
-                    : undefined
-                }
-                className={`flex cursor-pointer items-start gap-4 rounded-lg border-2 p-4 ${
-                  done[i]
-                    ? dark
-                      ? "border-green-500 bg-green-950"
-                      : "border-green-700 bg-green-50"
-                    : isNext
-                      ? "border-amber-500 bg-amber-50 ring-2 ring-amber-300 ring-offset-2"
-                      : dark
-                        ? "border-neutral-600 bg-neutral-900"
-                        : "border-neutral-300 bg-white"
-                } ${celebrate && !done[i] && !isNext ? "opacity-60" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={done[i]}
-                  onChange={() =>
-                    setDone((d) => d.map((v, j) => (j === i ? !v : v)))
-                  }
-                  className="mt-1 size-5 accent-green-700"
-                />
-                <span className="flex-1">
-                  {isNext && (
-                    <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-amber-700">
-                      Do this now
-                    </span>
-                  )}
-                  <span
-                    className={`mr-2 font-mono text-2xl font-bold ${dark ? "text-violet-300" : "text-blue-700"}`}
-                  >
-                    {i + 1}
-                  </span>
-                  <span
-                    className={done[i] ? (dark ? "text-green-200" : "text-green-900") : ""}
-                  >
-                    {step}
-                  </span>
-                </span>
-                {celebrate && done[i] && (
-                  <motion.span
-                    initial={reduced ? false : { scale: 0, rotate: -30 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    className="text-amber-500"
-                    aria-hidden="true"
-                  >
-                    <Sparkles size={20} />
-                  </motion.span>
-                )}
-              </motion.label>
+      <div>
+        <label
+          htmlFor="steps-answer"
+          className={`mb-2 block text-sm font-semibold ${dark ? "text-neutral-300" : "text-neutral-700"}`}
+        >
+          Your answer
+        </label>
+        <textarea
+          id="steps-answer"
+          data-spot="answer"
+          value={answer}
+          onChange={(e) => onAnswer(e.target.value)}
+          readOnly={readOnly}
+          rows={4}
+          className={`w-full rounded-lg border p-4 text-base leading-relaxed read-only:opacity-70 focus:outline-2 focus:outline-offset-2 ${
+            dark
+              ? "border-neutral-600 bg-neutral-950 text-neutral-50 focus:outline-violet-400"
+              : "border-neutral-300 bg-white focus:outline-blue-600"
+          }`}
+        />
+      </div>
+
+      {shown > 0 && (
+        <ol data-spot="hints" className="space-y-2" aria-live="polite">
+          {card.steps.slice(0, shown).map((step, i) => (
+            <li
+              key={i}
+              className={`flex items-start gap-3 rounded-lg border-l-4 border-amber-500 p-3 ${
+                dark ? "bg-amber-950 text-amber-100" : "bg-amber-50 text-amber-950"
+              }`}
+            >
+              <span className="font-mono text-lg font-bold text-amber-600">
+                {i + 1}
+              </span>
+              <span>{step}</span>
             </li>
-          );
-        })}
-      </ol>
-      <p
-        aria-live="polite"
-        className={`text-sm font-semibold ${dark ? "text-green-300" : "text-green-800"}`}
-      >
-        {done.every(Boolean) && "All steps done — brilliant. Hit Next!"}
-      </p>
+          ))}
+        </ol>
+      )}
+
+      {shown < card.steps.length && (
+        <button
+          type="button"
+          onClick={() => setShown((n) => n + 1)}
+          className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold focus:outline-2 focus:outline-offset-2 ${
+            dark
+              ? "border-neutral-600 bg-neutral-900 text-neutral-100 hover:bg-neutral-800 focus:outline-violet-400"
+              : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100 focus:outline-blue-600"
+          }`}
+        >
+          <Lightbulb size={16} aria-hidden="true" />
+          {shown === 0 ? "Give me a hint" : "Next hint"}
+        </button>
+      )}
     </div>
   );
 }
@@ -358,20 +285,22 @@ const TYPE_ICON: Record<
   { Icon: typeof Lightbulb; label: string }
 > = {
   concept: { Icon: Lightbulb, label: "Idea from the lesson" },
-  steps: { Icon: ListChecks, label: "Step-by-step task" },
+  steps: { Icon: ListChecks, label: "Work it through" },
   mcq: { Icon: CircleHelp, label: "Pick an answer" },
   short: { Icon: CircleHelp, label: "Write an answer" },
 };
 
 export default function CardRenderer({
   card,
-  profile,
   theme,
+  answer,
+  onAnswer,
+  readOnly,
 }: {
   card: HomeworkCard;
   profile: Profile;
   theme: ProfileTheme;
-}) {
+} & AnswerProps) {
   const isQuestion = card.type !== "concept";
   const dark = theme.id === "blind";
   const { Icon, label } = TYPE_ICON[card.type];
@@ -410,11 +339,11 @@ export default function CardRenderer({
           <p>{card.body}</p>
         </div>
       ) : card.type === "mcq" ? (
-        <McqCard card={card} theme={theme} />
+        <McqCard card={card} theme={theme} answer={answer} onAnswer={onAnswer} readOnly={readOnly} />
       ) : card.type === "short" ? (
-        <ShortCard card={card} theme={theme} />
+        <ShortCard card={card} theme={theme} answer={answer} onAnswer={onAnswer} readOnly={readOnly} />
       ) : (
-        <StepsCard card={card} theme={theme} />
+        <StepsCard card={card} theme={theme} answer={answer} onAnswer={onAnswer} readOnly={readOnly} />
       )}
 
       <div
