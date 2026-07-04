@@ -1,21 +1,19 @@
-import { Check, Flame } from "lucide-react";
+import { Check } from "lucide-react";
 
 /**
  * Progress indicator. Default: slim bar. `variant="chunky"` (ADHD): big
- * per-card checkmark pips plus a streak flame — progress you can feel.
+ * per-card checkmark pips — progress you can feel.
  * `dark` adapts colors for the blind profile's high-contrast theme.
  */
 export default function ProgressBar({
   current,
   total,
   variant = "slim",
-  streak = 0,
   dark = false,
 }: {
   current: number; // 1-based card number
   total: number;
   variant?: "slim" | "chunky";
-  streak?: number;
   dark?: boolean;
 }) {
   const pct = Math.round((current / total) * 100);
@@ -27,12 +25,6 @@ export default function ProgressBar({
           <span className="text-base font-bold text-neutral-800">
             Card {current} of {total}
           </span>
-          {streak > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-sm font-bold text-orange-800">
-              <Flame size={14} aria-hidden="true" />
-              {streak} in a row!
-            </span>
-          )}
         </div>
         <div
           role="progressbar"

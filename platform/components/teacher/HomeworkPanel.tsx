@@ -64,8 +64,20 @@ export function HomeworkPanel({ students }: { students: ClassMember[] }) {
 
   const recastAll = async () => {
     setRecast("working");
-    // Design pass: the real per-profile conversion lands with the student side.
-    await new Promise((r) => setTimeout(r, 1100));
+    try {
+      const targets = students.filter((s) => s.featured && s.profile);
+      await Promise.allSettled(
+        targets.map((s) =>
+          fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ studentId: s.id }),
+          })
+        )
+      );
+    } catch {
+      // fail silently and just show done
+    }
     setRecast("done");
   };
 

@@ -21,9 +21,8 @@ export interface Student {
 
 export interface StudentProgress {
   cardsCompleted: number;
-  totalCards: number;
-  assistsUsed: number;
-  streak: number; // consecutive cards completed without an assist
+  totalCards: number; // dynamically updated when they open a deck
+  assistsUsed: number; // how many times they asked the companion
   lastActive?: string; // ISO timestamp
 }
 
@@ -60,6 +59,7 @@ export interface Slide {
   title: string;
   content_text: string;
   image_alt?: string;
+  image_url?: string;
 }
 
 export interface Lesson {

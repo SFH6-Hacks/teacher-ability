@@ -130,7 +130,7 @@ export default function SpeechBubble({
         ...(side === "below" ? { top } : { bottom }),
         transformOrigin: side === "below" ? "20% -12px" : "20% calc(100% + 12px)",
       }}
-      className={`fixed z-50 max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-200/80 bg-white/95 p-5 shadow-2xl shadow-indigo-500/10 backdrop-blur-sm ${
+      className={`fixed z-50 max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-200/80 bg-white/95 p-5 text-neutral-900 shadow-2xl shadow-indigo-500/10 backdrop-blur-sm ${
         wide ? "text-lg" : ""
       }`}
     >

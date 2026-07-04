@@ -53,6 +53,8 @@ export function GlobalShortcuts() {
         case ")":
         case "h":
         case "H":
+        case "6":
+        case "^":
           e.preventDefault();
           router.push("/");
           break;

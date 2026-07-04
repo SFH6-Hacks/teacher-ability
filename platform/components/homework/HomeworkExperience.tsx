@@ -34,7 +34,6 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
   const [progress, setProgress] = useState<HeaderProgress>({
     cardsCompleted: 0,
     totalCards: total,
-    streak: 0,
   });
   const [burst, setBurst] = useState(0); // CelebrationBurst fire counter
   const [onBreak, setOnBreak] = useState(false); // ADHD brain-break interstitial
@@ -221,11 +220,6 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
             <p className={`text-lg ${dark ? "text-neutral-300" : "text-neutral-700"}`}>
               You worked through all {total} cards of {deck.title}.
             </p>
-            {progress.streak > 1 && (
-              <p className="text-lg font-semibold">
-                🔥 {progress.streak} cards in a row without help — brilliant.
-              </p>
-            )}
           </div>
 
           {/* Review + hand-in — also the printable area for Export PDF. */}
@@ -353,7 +347,6 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
                 current={index + 1}
                 total={total}
                 variant={theme.features.celebrations ? "chunky" : "slim"}
-                streak={progress.streak}
                 dark={dark}
               />
             </div>

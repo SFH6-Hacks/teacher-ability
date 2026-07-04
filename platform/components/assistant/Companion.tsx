@@ -23,6 +23,7 @@ import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
 import AnnotationLayer, { type StrokeGeometry } from "./AnnotationLayer";
 import DiagramCanvas from "./DiagramCanvas";
 import MascotFace, { type Expression } from "./MascotFace";
+import TangramMascot, { type TangramFigure } from "./TangramMascot";
 import SpeechBubble, { Typewriter, type BubbleSide } from "./SpeechBubble";
 import { buildFallbackPlan } from "./fallbackPlans";
 import { captureContext } from "./capture";
@@ -679,6 +680,16 @@ export default function Companion({
           ? "happy"
           : "idle";
 
+  const figure: TangramFigure = happyFlash
+    ? "cat"
+    : mode.kind === "loading"
+      ? "cube"
+      : mode.kind === "offer"
+        ? "sailboat"
+        : mode.kind === "done"
+          ? "rocket"
+          : "person";
+
   const fullQuestion = [question, speech.finalText].filter(Boolean).join(" ").trim();
   const helpsLeft = MAX_ASSISTS - (assistCounts[cardKey] ?? 0);
   const instantText = profile === "blind";
@@ -724,7 +735,7 @@ export default function Companion({
             : {}
         }
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        className="fixed left-0 top-0 z-[70] size-16 rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-600 p-1 shadow-xl shadow-blue-500/50 ring-1 ring-white/20 focus:outline-2 focus:outline-offset-2 focus:outline-blue-600"
+        className="fixed left-0 top-0 z-[70] size-16 rounded-3xl bg-white p-1 shadow-xl shadow-black/10 ring-1 ring-black/5 focus:outline-2 focus:outline-offset-2 focus:outline-blue-600"
       >
         <motion.div
           key={wobble}
@@ -732,12 +743,12 @@ export default function Companion({
             wobble && !reduced ? { rotate: [0, -14, 12, -9, 6, 0] } : { rotate: 0 }
           }
           transition={{ duration: 0.5 }}
-          className="size-full"
+          className="size-full flex items-center justify-center p-1"
         >
-          <MascotFace
-            expression={expression}
-            pupilOffset={pupil}
-            speaking={speaking}
+          <TangramMascot
+            figure={figure}
+            colorScheme={profile}
+            className="size-full drop-shadow-sm"
           />
         </motion.div>
         {drawing && (

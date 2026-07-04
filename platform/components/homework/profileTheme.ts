@@ -28,8 +28,8 @@ export interface ProfileTheme {
 }
 
 const baseFeatures = {
-  tts: false,
-  autoRead: false,
+  tts: true,
+  autoRead: true,
   keyboardNav: false,
   focusMode: false,
   celebrations: false,

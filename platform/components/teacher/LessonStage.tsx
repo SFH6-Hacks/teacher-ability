@@ -53,6 +53,13 @@ export function LessonStage() {
     [total],
   );
 
+  useEffect(() => {
+    const thumb = document.getElementById(`thumb-${clampedCurrent}`);
+    if (thumb) {
+      thumb.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }, [clampedCurrent]);
+
   // Present mode: fullscreen + arrow-key navigation.
   useEffect(() => {
     if (!presenting) return;
@@ -265,7 +272,6 @@ export function LessonStage() {
         </div>
         <span className="text-xs font-medium text-stone-500">
           Slide {total ? clampedCurrent + 1 : 0} of {total}
-          {source === "fallback" && " · sample slides"}
         </span>
       </div>
 
@@ -275,6 +281,7 @@ export function LessonStage() {
           {pages.map((p, i) => (
             <button
               key={i}
+              id={`thumb-${i}`}
               type="button"
               onClick={() => setCurrent(i)}
               aria-label={`Go to slide ${i + 1}`}
@@ -287,13 +294,6 @@ export function LessonStage() {
             </button>
           ))}
         </div>
-      )}
-
-      {source === "fallback" && (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          Showing sample slides — drop a real export at{" "}
-          <code className="font-mono">public/lesson.pdf</code> to present it.
-        </p>
       )}
 
       {/* transcript capture — grounds the homework help; kept low-key */}

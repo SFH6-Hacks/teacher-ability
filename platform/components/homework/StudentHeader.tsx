@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Flame, User } from "lucide-react";
+import { User } from "lucide-react";
 import type { Student } from "@/lib/types";
 import type { ProfileTheme } from "./profileTheme";
+import TangramMascot from "../assistant/TangramMascot";
 
 export interface HeaderProgress {
   cardsCompleted: number;
   totalCards: number;
-  streak: number;
 }
 
 const headerSurface: Record<ProfileTheme["id"], string> = {
@@ -31,7 +31,7 @@ export default function StudentHeader({
   children,
 }: {
   student: Student;
-  progress: HeaderProgress;
+  progress?: HeaderProgress;
   theme: ProfileTheme;
   title?: string;
   children?: React.ReactNode;
@@ -47,13 +47,7 @@ export default function StudentHeader({
           className={`group flex items-center gap-3 rounded-lg px-2 py-1 -ml-2 focus:outline-2 focus:outline-offset-2 ${dark ? "focus:outline-violet-400 hover:bg-neutral-800" : "focus:outline-blue-600 hover:bg-black/5"}`}
           aria-label={`View ${student.name}'s profile`}
         >
-          <span
-            aria-hidden="true"
-            className="flex size-10 items-center justify-center rounded-full text-xl shadow-sm"
-            style={{ backgroundColor: student.avatar?.color ?? "#3B82F6" }}
-          >
-            {student.avatar?.emoji ?? <User size={18} className="text-white" />}
-          </span>
+          <TangramMascot figure="person" colorScheme={theme.id} className="size-10 drop-shadow-sm" />
           <span className="leading-tight">
             <span className="block font-bold">Hi {student.name}!</span>
             <span className={`block text-xs ${muted} group-hover:underline`}>
@@ -63,21 +57,14 @@ export default function StudentHeader({
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
-          {progress.streak > 0 && (
+          {progress && (
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ${dark ? "bg-neutral-800 text-orange-300" : "bg-orange-100 text-orange-800"}`}
-              title="Cards completed in a row without help"
+              className={`rounded-full px-3 py-1 font-mono text-sm font-semibold ${dark ? "bg-neutral-800 text-neutral-200" : "bg-black/5 text-neutral-700"}`}
+              aria-label={`${progress.cardsCompleted} of ${progress.totalCards} cards completed`}
             >
-              <Flame size={14} aria-hidden="true" />
-              {progress.streak} streak
+              {progress.cardsCompleted}/{progress.totalCards} done
             </span>
           )}
-          <span
-            className={`rounded-full px-3 py-1 font-mono text-sm font-semibold ${dark ? "bg-neutral-800 text-neutral-200" : "bg-black/5 text-neutral-700"}`}
-            aria-label={`${progress.cardsCompleted} of ${progress.totalCards} cards completed`}
-          >
-            {progress.cardsCompleted}/{progress.totalCards} done
-          </span>
           {children}
         </div>
       </div>

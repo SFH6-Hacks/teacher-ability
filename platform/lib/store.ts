@@ -76,7 +76,6 @@ export function getProgress(
       cardsCompleted: 0,
       totalCards: totalCards ?? 0,
       assistsUsed: 0,
-      streak: 0,
     };
     progress.set(studentId, p);
   }
@@ -92,7 +91,6 @@ export function recordCardDone(
   const p = getProgress(studentId, totalCards);
   p.cardsCompleted = Math.max(p.cardsCompleted, cardIndex + 1);
   const assisted = assistedCards.get(studentId)?.has(cardIndex) ?? false;
-  p.streak = assisted ? 0 : p.streak + 1;
   p.lastActive = new Date().toISOString();
   return p;
 }

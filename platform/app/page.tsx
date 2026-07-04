@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import TangramMascot from "@/components/assistant/TangramMascot";
 
 export default function Home() {
   return (
     <div className="font-sans bg-background text-foreground min-h-screen">
       <header className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-stone-200">
-        <div className="max-w-6xl mx-auto px-8 py-4 flex items-center gap-4">
+        <div className="max-w-6xl mx-auto px-8 py-4 flex items-center gap-3">
+          <TangramMascot figure="person" colorScheme="teal" className="size-8 drop-shadow-sm" />
           <span className="font-serif font-semibold text-[22px] tracking-tight">Recast</span>
           <span className="ml-auto text-xs font-semibold text-stone-500 font-mono uppercase tracking-widest">
             Hackathon demo · built on Gemini

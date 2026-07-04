@@ -57,7 +57,7 @@ function fallbackPages(): DeckPage[] {
     index: s.index - 1,
     title: s.title,
     text: s.content_text,
-    imageUrl: null,
+    imageUrl: s.image_url ?? null,
     imageAlt: s.image_alt,
   }));
 }

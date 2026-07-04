@@ -8,6 +8,8 @@ import { useLessonDeck } from "@/lib/useLessonDeck";
 import { DeckCanvas } from "@/components/lesson/DeckCanvas";
 import TtsPlayer from "@/components/slides/TtsPlayer";
 import ProfileContent from "@/components/layout/ProfileContent";
+import StudentHeader from "@/components/homework/StudentHeader";
+import { PROFILE_THEMES } from "@/components/homework/profileTheme";
 import { speak, cancelSpeech } from "@/lib/speak";
 
 interface LiveState {
@@ -59,45 +61,43 @@ export function LiveLesson({ student }: { student: Student }) {
     setFollowing(false);
   };
 
-  return (
-    <div className="min-h-screen bg-stone-100 text-stone-900">
-      <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/85 px-6 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center gap-3">
-          <span
-            aria-hidden="true"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full text-lg shadow-sm"
-            style={{ backgroundColor: student.avatar?.color ?? "#0f766e" }}
-          >
-            {student.avatar?.emoji ?? "🙂"}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold">{student.name}</p>
-            <p className="text-xs text-stone-500">{student.profileLabel}</p>
-          </div>
+  useEffect(() => {
+    const thumb = document.getElementById(`thumb-${viewIndex}`);
+    if (thumb) {
+      thumb.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }, [viewIndex]);
 
-          {/* follow status */}
-          {following ? (
-            <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700">
-              <Radio size={13} className="animate-pulse motion-reduce:animate-none" aria-hidden="true" />
-              Following live
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setFollowing(true)}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-amber-500"
-            >
-              <Rewind size={13} aria-hidden="true" /> Back to live
-            </button>
-          )}
-          <Link
-            href={`/hw/${student.id}`}
-            className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+  const theme = PROFILE_THEMES[student.profile];
+
+  return (
+    <div className={`min-h-screen ${theme.page}`}>
+      <StudentHeader student={student} theme={theme} title="Live Lesson">
+        {/* follow status */}
+        {following ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700">
+            <Radio size={13} className="animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+            Following live
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setFollowing(true);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-amber-500"
           >
-            Homework
-          </Link>
-        </div>
-      </header>
+            <Rewind size={13} aria-hidden="true" /> Back to live
+          </button>
+        )}
+        <Link
+          href={`/hw/${student.id}`}
+          className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+        >
+          Homework
+        </Link>
+      </StudentHeader>
 
       <main id="main" className="mx-auto max-w-4xl space-y-4 p-6">
         {!following && (
@@ -147,6 +147,7 @@ export function LiveLesson({ student }: { student: Student }) {
             {pages.map((p, i) => (
               <button
                 key={i}
+                id={`thumb-${i}`}
                 type="button"
                 onClick={() => openThumb(i)}
                 aria-label={`Review slide ${i + 1}`}
@@ -166,11 +167,7 @@ export function LiveLesson({ student }: { student: Student }) {
           </div>
         )}
 
-        {source === "fallback" && (
-          <p className="text-center text-xs text-stone-400">
-            Showing sample slides until the teacher&apos;s deck is uploaded.
-          </p>
-        )}
+
       </main>
     </div>
   );

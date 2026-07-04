@@ -49,7 +49,6 @@ export const ROSTER: Student[] = [
     accommodations: [
       "Focus mode — one task on screen at a time",
       "Questions broken into small checkable steps",
-      "Visible progress bar and streak counter",
       "Celebration on every small win",
       "Brain-break prompts every few cards",
       "Minimal on-screen clutter and decoration",
@@ -194,6 +193,15 @@ export const ACTIVITY_SCRIPT: ActivityBeat[] = [
 
 export const ACTIVITY_LOOP_SECONDS = 46;
 
+// Stage-failure insurance: injected via the "Use backup transcript" button.
+export const BACKUP_TRANSCRIPT = `Okay everyone, today we're looking at area and perimeter of 2D shapes. First off, what's the difference between area and perimeter? Perimeter is the distance all the way around the outside of a shape. If you walk along the edge of a field, that's the perimeter. Area is the amount of space inside the shape. If you want to paint the floor of a room, that's the area. Perimeter is just a length, so we measure it in centimetres or metres. Area is different — it's two-dimensional, so we measure it in square centimetres or square metres. For a rectangle, area is length times width, and perimeter is two times length plus width. For a triangle, it's half times base times height. And the height must be the perpendicular height — straight up from the base, not the sloping side. And for circles, we use pi. Area is pi times r squared — that's the radius squared, not doubled. Circumference, which is the circle's perimeter, is two times pi times r. The big thing to watch out for in the homework is using the right units — cm for perimeter, cm squared for area. Don't mix them up.`;
+
+export const BACKUP_SUMMARY = [
+  "Perimeter = distance around the outside; Area = space inside. Different units (cm vs cm²).",
+  "Rectangle: Area = l × w, Perimeter = 2(l + w). Triangle: Area = ½ × base × height (perpendicular height).",
+  "Circle: Area = π × r², Circumference = 2 × π × r. Use π ≈ 3.14.",
+];
+
 export const DEMO_LESSON: Lesson = {
   id: "area-perimeter",
   title: "Area & Perimeter of 2D Shapes",
@@ -205,6 +213,7 @@ export const DEMO_LESSON: Lesson = {
         "Perimeter is the total distance around the outside of a shape — like walking along its edges. Area is the amount of space inside the shape — like how much paint you'd need to cover it. They are measured in different units: perimeter in units of length (cm, m), area in square units (cm², m²).",
       image_alt:
         "A rectangle drawn on a grid, with the outer edge highlighted in blue and the interior filled in orange. Labels show perimeter = distance around, area = space inside.",
+      image_url: "/slide1.jpg",
     },
     {
       index: 2,
@@ -213,6 +222,7 @@ export const DEMO_LESSON: Lesson = {
         "For a rectangle: Area = length × width (A = l × w). Perimeter = 2 × (length + width). A square is just a rectangle with all sides equal, so Area = side × side = s², and Perimeter = 4s. Always include the correct units — cm for perimeter, cm² for area.",
       image_alt:
         "Diagram of a rectangle labelled length 6 cm and width 4 cm. Area formula shown as l × w = 24 cm². Perimeter shown as 2(l + w) = 20 cm.",
+      image_url: "/slide2.jpg",
     },
     {
       index: 3,
@@ -221,6 +231,7 @@ export const DEMO_LESSON: Lesson = {
         "Area of a triangle = ½ × base × height (A = ½bh). The height must be the perpendicular height — the vertical distance from the base to the opposite vertex, not the sloping side. For a parallelogram: Area = base × height (same idea, no halving).",
       image_alt:
         "Triangle with base labelled 8 cm and a dotted perpendicular line from the top vertex to the base labelled height 5 cm. Formula A = ½ × 8 × 5 = 20 cm² shown below.",
+      image_url: "/slide3.jpg",
     },
     {
       index: 4,
@@ -229,20 +240,12 @@ export const DEMO_LESSON: Lesson = {
         "For a circle, we use π (pi ≈ 3.14). Area = π × r² where r is the radius. Circumference (the circle's perimeter) = 2 × π × r. The radius goes from the centre to the edge; the diameter is twice the radius and goes all the way across.",
       image_alt:
         "Circle with centre marked, radius drawn from centre to edge labelled 'r', and a diameter line across the whole circle labelled 'd = 2r'. Area formula πr² and circumference formula 2πr shown.",
+      image_url: "/slide4.jpg",
     },
   ],
-  transcript: "",
-  summary: [],
+  transcript: BACKUP_TRANSCRIPT,
+  summary: BACKUP_SUMMARY,
 };
-
-// Stage-failure insurance: injected via the "Use backup transcript" button.
-export const BACKUP_TRANSCRIPT = `Okay everyone, today we're looking at area and perimeter of 2D shapes. First off, what's the difference between area and perimeter? Perimeter is the distance all the way around the outside of a shape. If you walk along the edge of a field, that's the perimeter. Area is the amount of space inside the shape. If you want to paint the floor of a room, that's the area. Perimeter is just a length, so we measure it in centimetres or metres. Area is different — it's two-dimensional, so we measure it in square centimetres or square metres. For a rectangle, area is length times width, and perimeter is two times length plus width. For a triangle, it's half times base times height. And the height must be the perpendicular height — straight up from the base, not the sloping side. And for circles, we use pi. Area is pi times r squared — that's the radius squared, not doubled. Circumference, which is the circle's perimeter, is two times pi times r. The big thing to watch out for in the homework is using the right units — cm for perimeter, cm squared for area. Don't mix them up.`;
-
-export const BACKUP_SUMMARY = [
-  "Perimeter = distance around the outside; Area = space inside. Different units (cm vs cm²).",
-  "Rectangle: Area = l × w, Perimeter = 2(l + w). Triangle: Area = ½ × base × height (perpendicular height).",
-  "Circle: Area = π × r², Circumference = 2 × π × r. Use π ≈ 3.14.",
-];
 
 // The one homework file used for every upload in the demo (no real parsing).
 export const DEMO_HOMEWORK_TITLE = "Worksheet: Area & Perimeter";
@@ -513,3 +516,6 @@ export function questionText(card: HomeworkCard): string | null {
       return null;
   }
 }
+
+
+

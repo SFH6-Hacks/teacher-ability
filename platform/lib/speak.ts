@@ -1,17 +1,27 @@
 let activeAudio: HTMLAudioElement | null = null;
+let activeCallback: ((on: boolean) => void) | null = null;
+let speechId = 0;
 
 export function cancelSpeech() {
+  speechId++; // invalidate any in-flight fetches
   if (activeAudio) {
     activeAudio.pause();
     activeAudio.currentTime = 0;
     activeAudio = null;
   }
+  if (activeCallback) {
+    activeCallback(false);
+    activeCallback = null;
+  }
 }
 
 export async function speak(text: string, onSpeaking?: (on: boolean) => void) {
   cancelSpeech();
+  const currentId = speechId;
+  activeCallback = onSpeaking || null;
+  
   try {
-    onSpeaking?.(true);
+    activeCallback?.(true);
     const res = await fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -21,22 +31,31 @@ export async function speak(text: string, onSpeaking?: (on: boolean) => void) {
       }),
     });
     
+    if (currentId !== speechId) return; // a new speech started while we were fetching
     if (!res.ok) throw new Error("TTS failed");
     
     const blob = await res.blob();
+    if (currentId !== speechId) return; 
+
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     activeAudio = audio;
     
     audio.onended = () => {
-      onSpeaking?.(false);
+      if (activeAudio === audio) {
+        activeCallback?.(false);
+        activeCallback = null;
+        activeAudio = null;
+      }
       URL.revokeObjectURL(url);
-      if (activeAudio === audio) activeAudio = null;
     };
     
     await audio.play();
   } catch (err) {
     console.error("Speech error", err);
-    onSpeaking?.(false);
+    if (currentId === speechId) {
+      activeCallback?.(false);
+      activeCallback = null;
+    }
   }
 }

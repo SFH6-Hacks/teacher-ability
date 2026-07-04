@@ -4,7 +4,6 @@ import {
   ArrowRight,
   BookOpen,
   Check,
-  Flame,
   HandHelping,
   Keyboard,
   MonitorPlay,
@@ -14,6 +13,7 @@ import {
 import { getStudent } from "@/lib/demo-data";
 import { getProgress } from "@/lib/store";
 import { PROFILE_THEMES } from "@/components/homework/profileTheme";
+import TangramMascot from "@/components/assistant/TangramMascot";
 
 export const dynamic = "force-dynamic";
 
@@ -52,22 +52,15 @@ export default async function StudentProfilePage({
         ? "bg-[#f0e6cd] text-neutral-800"
         : "bg-neutral-200 text-neutral-800";
   const sectionTitle = `text-sm font-bold uppercase tracking-wide ${muted}`;
-  const pct = progress.totalCards
-    ? Math.round((progress.cardsCompleted / progress.totalCards) * 100)
-    : 0;
 
   return (
     <div className={`min-h-screen ${theme.page} ${font}`}>
       <main className="mx-auto max-w-3xl space-y-8 p-6 py-10">
         {/* Identity */}
         <header className="flex flex-wrap items-center gap-6">
-          <span
-            aria-hidden="true"
-            className="flex size-24 items-center justify-center rounded-3xl text-5xl shadow-md"
-            style={{ backgroundColor: student.avatar?.color ?? "#3B82F6" }}
-          >
-            {student.avatar?.emoji ?? "🙂"}
-          </span>
+          <div className="flex size-24 items-center justify-center rounded-3xl bg-white shadow-md ring-1 ring-black/5">
+            <TangramMascot figure="person" colorScheme={theme.id} className="size-20 drop-shadow-sm" />
+          </div>
           <div className="min-w-0">
             <h1 className="text-4xl font-bold">{student.name}</h1>
             <p className={`mt-1 text-lg ${muted}`}>
@@ -102,52 +95,22 @@ export default async function StudentProfilePage({
 
         {/* Progress */}
         <section aria-label="Progress" className={theme.card}>
-          <h2 className={sectionTitle}>Progress this session</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <h2 className={sectionTitle}>Term overview</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <p className="text-3xl font-bold">
-                {progress.cardsCompleted}
-                <span className={`text-lg font-semibold ${muted}`}>
-                  /{progress.totalCards || "—"}
-                </span>
+                92<span className={`text-lg font-semibold ${muted}`}>%</span>
               </p>
-              <p className={`text-sm ${muted}`}>cards completed</p>
-              <div
-                className={`mt-2 h-2.5 w-full rounded-full ${dark ? "bg-neutral-800" : "bg-neutral-200"}`}
-                role="progressbar"
-                aria-valuenow={progress.cardsCompleted}
-                aria-valuemin={0}
-                aria-valuemax={progress.totalCards || 1}
-                aria-label={`${progress.cardsCompleted} of ${progress.totalCards} cards completed`}
-              >
-                <div
-                  className={`h-2.5 rounded-full ${dark ? "bg-violet-400" : "bg-green-600"}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <p className="flex items-center gap-2 text-3xl font-bold">
-                <Flame
-                  size={26}
-                  aria-hidden="true"
-                  className={progress.streak > 0 ? "text-orange-500" : muted}
-                />
-                {progress.streak}
-              </p>
-              <p className={`text-sm ${muted}`}>streak — cards in a row without help</p>
+              <p className={`text-sm ${muted}`}>homework completion rate</p>
             </div>
             <div>
               <p className="flex items-center gap-2 text-3xl font-bold">
                 <HandHelping size={26} aria-hidden="true" className={muted} />
-                {progress.assistsUsed}
+                24
               </p>
-              <p className={`text-sm ${muted}`}>helper assists used</p>
+              <p className={`text-sm ${muted}`}>AI assists used this term</p>
             </div>
           </div>
-          <p className={`mt-4 text-xs ${muted}`}>
-            This session only — progress resets when the demo server restarts.
-          </p>
         </section>
 
         {/* Interests & strengths */}
