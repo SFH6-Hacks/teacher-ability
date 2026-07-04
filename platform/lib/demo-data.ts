@@ -195,38 +195,40 @@ export const ACTIVITY_SCRIPT: ActivityBeat[] = [
 export const ACTIVITY_LOOP_SECONDS = 46;
 
 export const DEMO_LESSON: Lesson = {
-  id: "newton-3",
-  title: "Newton's Third Law",
+  id: "area-perimeter",
+  title: "Area & Perimeter of 2D Shapes",
   slides: [
     {
       index: 1,
-      title: "Newton's Third Law",
+      title: "Area & Perimeter",
       content_text:
-        "For every action there is an equal and opposite reaction. When object A pushes on object B, object B pushes back on object A with the same force, in the opposite direction.",
+        "Perimeter is the total distance around the outside of a shape — like walking along its edges. Area is the amount of space inside the shape — like how much paint you'd need to cover it. They are measured in different units: perimeter in units of length (cm, m), area in square units (cm², m²).",
       image_alt:
-        "Two ice skaters pushing against each other's hands, gliding apart in opposite directions.",
+        "A rectangle drawn on a grid, with the outer edge highlighted in blue and the interior filled in orange. Labels show perimeter = distance around, area = space inside.",
     },
     {
       index: 2,
-      title: "Force pairs",
+      title: "Rectangles & Squares",
       content_text:
-        "Forces always come in pairs. The two forces in a pair are equal in size, opposite in direction, and act on DIFFERENT objects. That last part is the one everyone forgets.",
+        "For a rectangle: Area = length × width (A = l × w). Perimeter = 2 × (length + width). A square is just a rectangle with all sides equal, so Area = side × side = s², and Perimeter = 4s. Always include the correct units — cm for perimeter, cm² for area.",
       image_alt:
-        "Diagram of a book on a table: an arrow from the book pushing down on the table, and an arrow from the table pushing up on the book.",
+        "Diagram of a rectangle labelled length 6 cm and width 4 cm. Area formula shown as l × w = 24 cm². Perimeter shown as 2(l + w) = 20 cm.",
     },
     {
       index: 3,
-      title: "Swimming and rockets",
+      title: "Triangles & Parallelograms",
       content_text:
-        "A swimmer pushes water backwards; the water pushes the swimmer forwards. A rocket pushes exhaust gas down; the gas pushes the rocket up. You don't need anything to push against except the thing you throw away.",
+        "Area of a triangle = ½ × base × height (A = ½bh). The height must be the perpendicular height — the vertical distance from the base to the opposite vertex, not the sloping side. For a parallelogram: Area = base × height (same idea, no halving).",
       image_alt:
-        "A rocket launching, with exhaust gases drawn as arrows pointing down and a thrust arrow pointing up.",
+        "Triangle with base labelled 8 cm and a dotted perpendicular line from the top vertex to the base labelled height 5 cm. Formula A = ½ × 8 × 5 = 20 cm² shown below.",
     },
     {
       index: 4,
-      title: "Why don't the forces cancel?",
+      title: "Circles",
       content_text:
-        "The action and reaction forces act on different objects, so they never cancel each other out. The force on the swimmer affects the swimmer; the force on the water affects the water. Each object moves according to the forces on IT alone.",
+        "For a circle, we use π (pi ≈ 3.14). Area = π × r² where r is the radius. Circumference (the circle's perimeter) = 2 × π × r. The radius goes from the centre to the edge; the diameter is twice the radius and goes all the way across.",
+      image_alt:
+        "Circle with centre marked, radius drawn from centre to edge labelled 'r', and a diameter line across the whole circle labelled 'd = 2r'. Area formula πr² and circumference formula 2πr shown.",
     },
   ],
   transcript: "",
@@ -234,31 +236,31 @@ export const DEMO_LESSON: Lesson = {
 };
 
 // Stage-failure insurance: injected via the "Use backup transcript" button.
-export const BACKUP_TRANSCRIPT = `Okay everyone, today we're looking at Newton's Third Law. For every action there is an equal and opposite reaction. Now what does that actually mean. If I push on the wall, the wall pushes back on me with exactly the same force. Not roughly the same, exactly the same. The key thing, and this is the bit that comes up in the homework, is that the two forces act on different objects. My push acts on the wall. The wall's push acts on me. That's why they don't cancel out. Think about a swimmer. She pushes the water backwards, and the water pushes her forwards, that's how she moves. Same with a rocket. The rocket throws gas out the back, and the gas pushes the rocket forward. It doesn't need air to push against, which is why rockets work in space. So when the homework asks you to identify a force pair, remember: same size, opposite direction, different objects.`;
+export const BACKUP_TRANSCRIPT = `Okay everyone, today we're looking at area and perimeter of 2D shapes. First off, what's the difference between area and perimeter? Perimeter is the distance all the way around the outside of a shape. If you walk along the edge of a field, that's the perimeter. Area is the amount of space inside the shape. If you want to paint the floor of a room, that's the area. Perimeter is just a length, so we measure it in centimetres or metres. Area is different — it's two-dimensional, so we measure it in square centimetres or square metres. For a rectangle, area is length times width, and perimeter is two times length plus width. For a triangle, it's half times base times height. And the height must be the perpendicular height — straight up from the base, not the sloping side. And for circles, we use pi. Area is pi times r squared — that's the radius squared, not doubled. Circumference, which is the circle's perimeter, is two times pi times r. The big thing to watch out for in the homework is using the right units — cm for perimeter, cm squared for area. Don't mix them up.`;
 
 export const BACKUP_SUMMARY = [
-  "Newton's Third Law: every action has an equal and opposite reaction.",
-  "The two forces in a pair are the same size, opposite direction — and act on different objects, so they never cancel.",
-  "Swimmers push water backwards to move forwards; rockets push gas out to move — no air needed.",
+  "Perimeter = distance around the outside; Area = space inside. Different units (cm vs cm²).",
+  "Rectangle: Area = l × w, Perimeter = 2(l + w). Triangle: Area = ½ × base × height (perpendicular height).",
+  "Circle: Area = π × r², Circumference = 2 × π × r. Use π ≈ 3.14.",
 ];
 
 // The one homework file used for every upload in the demo (no real parsing).
-export const DEMO_HOMEWORK_TITLE = "Worksheet: Newton's Third Law";
-export const DEMO_HOMEWORK_RAW = `Worksheet — Newton's Third Law
+export const DEMO_HOMEWORK_TITLE = "Worksheet: Area & Perimeter";
+export const DEMO_HOMEWORK_RAW = `Worksheet — Area & Perimeter of 2D Shapes
 
-1. State Newton's Third Law in your own words.
+1. What is the difference between area and perimeter? Explain in your own words.
 
-2. A swimmer pushes water backwards with her hands and feet. Explain, using Newton's Third Law, why she moves forwards.
+2. A rectangle is 6 cm long and 4 cm wide. Find its area and perimeter. Include the correct units.
 
-3. A book rests on a table. The book pushes down on the table with a force of 5 N. What is the Newton's Third Law reaction to this force?
-   a) The weight of the book
-   b) The table pushing up on the book with 5 N
-   c) Gravity pulling the table down
-   d) There is no reaction because nothing is moving
+3. A triangle has a base of 10 cm and a height of 6 cm. What is its area?
+   a) 60 cm²
+   b) 30 cm²
+   c) 16 cm²
+   d) 30 cm
 
-4. Rockets work in space even though there is no air to push against. Explain why.
+4. A circle has a radius of 7 cm. Using π = 3.14, work out the area of the circle. Round your answer to the nearest whole number.
 
-5. If action and reaction forces are always equal and opposite, why don't they cancel out so that nothing can ever move?`;
+5. Is it possible for two different shapes to have the same perimeter but different areas? Give an example to support your answer.`;
 
 // ---------------------------------------------------------------------------
 // Fallback decks — used when Gemini is unavailable so a judge never sees an
@@ -267,38 +269,38 @@ export const DEMO_HOMEWORK_RAW = `Worksheet — Newton's Third Law
 
 const CONCEPT_LAW: HomeworkCard = {
   type: "concept",
-  heading: "The big idea",
-  body: "For every action there is an equal and opposite reaction. When you push on something, it pushes back on you — same size, opposite direction.",
+  heading: "Area vs Perimeter",
+  body: "Perimeter is the total distance around a shape. Area is the space inside it. Perimeter is measured in units of length (cm, m). Area is measured in square units (cm\u00B2, m\u00B2).",
   slideRef: 1,
 };
 
 const CONCEPT_PAIRS: HomeworkCard = {
   type: "concept",
-  heading: "Force pairs act on different objects",
-  body: "The two forces in a pair never act on the same object. Your push acts on the wall; the wall's push acts on you. That is why they don't cancel.",
+  heading: "Rectangles & Squares",
+  body: "For any rectangle: Area = length \u00D7 width. Perimeter = 2 \u00D7 (length + width). For a square (all sides equal): Area = side\u00B2. Perimeter = 4 \u00D7 side. Always include the correct unit.",
   slideRef: 2,
 };
 
 const CONCEPT_ROCKETS: HomeworkCard = {
   type: "concept",
-  heading: "Swimmers and rockets",
-  body: "A swimmer pushes water backwards, so the water pushes her forwards. A rocket throws gas out of the back, so the gas pushes the rocket forwards — no air needed.",
+  heading: "Triangles & Parallelograms",
+  body: "Area of a triangle = \u00BD \u00D7 base \u00D7 perpendicular height. The height is the vertical distance from the base to the opposite vertex \u2014 not the sloping side. For a parallelogram: Area = base \u00D7 height (no halving).",
   slideRef: 3,
 };
 
 const MCQ_BOOK: HomeworkCard = {
   type: "mcq",
   question:
-    "A book pushes down on a table with a force of 5 N. What is the Newton's Third Law reaction to this force?",
+    "A triangle has a base of 10 cm and a height of 6 cm. What is its area?",
   options: [
-    "The weight of the book",
-    "The table pushing up on the book with 5 N",
-    "Gravity pulling the table down",
-    "There is no reaction because nothing is moving",
+    "60 cm\u00B2",
+    "30 cm\u00B2",
+    "16 cm\u00B2",
+    "30 cm",
   ],
   correctIndex: 1,
   explanation:
-    "The reaction to “book pushes table” is “table pushes book” — same size (5 N), opposite direction, acting on the other object.",
+    "Area of a triangle = \u00BD \u00D7 base \u00D7 height = \u00BD \u00D7 10 \u00D7 6 = 30 cm\u00B2. The answer must be in square units (cm\u00B2), not linear units (cm).",
 };
 
 const FALLBACK_DECKS: Record<Profile, Deck["cards"]> = {
@@ -306,43 +308,45 @@ const FALLBACK_DECKS: Record<Profile, Deck["cards"]> = {
     CONCEPT_LAW,
     {
       type: "short",
-      question: "State Newton's Third Law in your own words.",
+      question: "What is the difference between area and perimeter?",
       modelPoints: [
-        "Every action has a reaction",
-        "Equal in size",
-        "Opposite in direction",
-      ],
-    },
-    CONCEPT_ROCKETS,
-    {
-      type: "short",
-      question:
-        "A swimmer pushes water backwards.\n\nExplain why she moves forwards.",
-      modelPoints: [
-        "She pushes the water backwards",
-        "The water pushes her forwards with equal force",
-        "The forward force acts on her, so she moves",
+        "Perimeter is the distance around the outside",
+        "Area is the space inside the shape",
+        "Perimeter in units (cm), area in square units (cm\u00B2)",
       ],
     },
     CONCEPT_PAIRS,
     MCQ_BOOK,
+    CONCEPT_ROCKETS,
     {
       type: "short",
       question:
-        "Rockets work in space with no air.\n\nExplain why, using Newton's Third Law.",
+        "A rectangle is 6 cm long and 4 cm wide.\n\nFind its area and perimeter. Include the correct units.",
       modelPoints: [
-        "The rocket pushes gas out of the back",
-        "The gas pushes the rocket forwards",
-        "It pushes against the gas, not the air",
+        "Area = length \u00D7 width = 6 \u00D7 4 = 24 cm\u00B2",
+        "Perimeter = 2 \u00D7 (length + width) = 2 \u00D7 (6 + 4) = 20 cm",
+        "Area is squared units, perimeter is linear units",
       ],
     },
     {
       type: "short",
       question:
-        "Action and reaction are equal and opposite.\n\nWhy don't they cancel out?",
+        "A circle has a radius of 7 cm. Using \u03C0 = 3.14, work out its area. Round to the nearest whole number.",
       modelPoints: [
-        "They act on different objects",
-        "Each object only feels the force on itself",
+        "Area = \u03C0 \u00D7 r\u00B2 = 3.14 \u00D7 7\u00B2",
+        "= 3.14 \u00D7 49 = 153.86 cm\u00B2",
+        "Rounded to 154 cm\u00B2",
+      ],
+    },
+    {
+      type: "short",
+      question:
+        "Can two different shapes have the same perimeter but different areas?\n\nExplain with an example.",
+      modelPoints: [
+        "Yes, this is possible",
+        "Example: a 3\u00D75 rectangle has area 15 and perimeter 16",
+        "A 2\u00D76 rectangle has area 12 and the same perimeter 16",
+        "Shapes with the same perimeter can have different areas",
       ],
     },
   ],
@@ -350,43 +354,43 @@ const FALLBACK_DECKS: Record<Profile, Deck["cards"]> = {
     CONCEPT_LAW,
     {
       type: "steps",
-      question: "Question 1: State Newton's Third Law in your own words.",
+      question: "Question 1: Explain the difference between area and perimeter.",
       steps: [
-        "Say the law out loud once: every action has an equal and opposite reaction.",
-        "Write one sentence starting with “When something pushes…”",
-        "Check your sentence mentions: equal size, opposite direction.",
-      ],
-    },
-    CONCEPT_ROCKETS,
-    {
-      type: "steps",
-      question:
-        "Question 2: Explain why a swimmer who pushes water backwards moves forwards.",
-      steps: [
-        "Name the action: the swimmer pushes the water backwards.",
-        "Name the reaction: the water pushes the swimmer forwards.",
-        "Write both sentences down — that's the whole answer.",
-      ],
-    },
-    MCQ_BOOK,
-    {
-      type: "steps",
-      question: "Question 4: Why do rockets work in space with no air?",
-      steps: [
-        "What does the rocket throw out of the back? Write it down (gas).",
-        "What does that gas do back to the rocket? (pushes it forwards)",
-        "Finish with: “so it doesn't need air to push against.”",
+        "Start with perimeter: it's the distance around the outside.",
+        "Now area: it's the space inside the shape.",
+        "Write: \"Perimeter is \u2026 and area is \u2026\" in one sentence.",
       ],
     },
     CONCEPT_PAIRS,
     {
       type: "steps",
-      question:
-        "Question 5: Why don't action and reaction forces cancel out?",
+      question: "Question 2: A rectangle is 6 cm by 4 cm. Find its area and perimeter.",
       steps: [
-        "Remember: the two forces act on DIFFERENT objects.",
-        "Write which object each force acts on for the swimmer example.",
-        "Explain: each object only moves because of the force on itself.",
+        "Area first: multiply length by width. Write that down.",
+        "Now perimeter: add length and width, then multiply by 2.",
+        "Check your units \u2014 area needs cm\u00B2, perimeter needs cm.",
+      ],
+    },
+    MCQ_BOOK,
+    {
+      type: "steps",
+      question: "Question 4: A circle has radius 7 cm. Find its area.",
+      steps: [
+        "Write down the formula: Area = \u03C0 \u00D7 r\u00B2.",
+        "Square the radius: 7\u00B2 = 49.",
+        "Multiply by \u03C0: 3.14 \u00D7 49 = ?",
+        "Round your answer to the nearest whole number.",
+      ],
+    },
+    CONCEPT_ROCKETS,
+    {
+      type: "steps",
+      question: "Question 5: Explain how two shapes can have the same perimeter but different areas.",
+      steps: [
+        "Think of a long thin rectangle vs a squarer one.",
+        "Sketch a 3\u00D75 rectangle and a 2\u00D76 rectangle \u2014 both have perimeter 16.",
+        "Calculate each area. Which one is bigger?",
+        "Write: \"Same perimeter doesn't mean same area because \u2026\"",
       ],
     },
   ],
@@ -395,19 +399,21 @@ const FALLBACK_DECKS: Record<Profile, Deck["cards"]> = {
     CONCEPT_PAIRS,
     {
       type: "short",
-      question: "State Newton's Third Law in your own words.",
+      question: "What is the difference between area and perimeter?",
       modelPoints: [
-        "Every action has a reaction",
-        "Equal in size, opposite in direction",
+        "Perimeter is the distance around the outside",
+        "Area is the space inside the shape",
+        "Perimeter in cm, area in cm\u00B2",
       ],
     },
     {
       type: "short",
       question:
-        "A swimmer pushes water backwards with her hands and feet. Explain, using Newton's Third Law, why she moves forwards.",
+        "A rectangle is 6 cm long and 4 cm wide.\n\nFind its area and perimeter with the correct units.",
       modelPoints: [
-        "Action: swimmer pushes water backwards",
-        "Reaction: water pushes swimmer forwards with equal force",
+        "Area = length \u00D7 width = 6 \u00D7 4 = 24 cm\u00B2",
+        "Perimeter = 2 \u00D7 (6 + 4) = 20 cm",
+        "Different units for each measurement",
       ],
     },
     MCQ_BOOK,
@@ -415,19 +421,22 @@ const FALLBACK_DECKS: Record<Profile, Deck["cards"]> = {
     {
       type: "short",
       question:
-        "Rockets work in space even though there is no air to push against. Explain why.",
+        "A circle has a radius of 7 cm. Using \u03C0 = 3.14, work out its area. Round to the nearest whole number.",
       modelPoints: [
-        "Rocket pushes exhaust gas backwards",
-        "Gas pushes rocket forwards — the gas is what it pushes against",
+        "Area = \u03C0 \u00D7 r\u00B2 = 3.14 \u00D7 49",
+        "= 153.86 cm\u00B2",
+        "Rounded to 154 cm\u00B2",
       ],
     },
     {
       type: "short",
       question:
-        "If action and reaction forces are always equal and opposite, why don't they cancel out?",
+        "Can two different shapes have the same perimeter but different areas? Explain with an example.",
       modelPoints: [
-        "They act on different objects",
-        "Forces only cancel when they act on the same object",
+        "Yes, possible",
+        "3\u00D75 rectangle: perimeter 16, area 15",
+        "2\u00D76 rectangle: same perimeter 16, area 12",
+        "Shape matters, not just perimeter",
       ],
     },
   ],
@@ -435,41 +444,43 @@ const FALLBACK_DECKS: Record<Profile, Deck["cards"]> = {
     {
       type: "concept",
       heading: "From today's lesson",
-      body: "Newton's Third Law: every action has an equal and opposite reaction. The two forces are the same size, opposite in direction, and act on different objects — so they never cancel.",
+      body: "Perimeter is the distance around a shape (cm, m). Area is the space inside it (cm\u00B2, m\u00B2). Rectangle: Area = l \u00D7 w, Perimeter = 2(l + w). Triangle: Area = \u00BD \u00D7 base \u00D7 height. Circle: Area = \u03C0r\u00B2, Circumference = 2\u03C0r.",
       slideRef: 1,
     },
-    CONCEPT_ROCKETS,
+    CONCEPT_LAW,
     {
       type: "short",
-      question: "State Newton's Third Law in your own words.",
+      question: "What is the difference between area and perimeter?",
       modelPoints: [
-        "Every action has a reaction",
-        "Equal in size, opposite in direction",
+        "Perimeter is distance around",
+        "Area is space inside",
+        "Different units for each",
       ],
     },
     {
       type: "short",
       question:
-        "A swimmer pushes water backwards. Explain why she moves forwards.",
+        "A rectangle is 6 cm long and 4 cm wide.\n\nFind its area and perimeter.",
       modelPoints: [
-        "Action: swimmer pushes water backwards",
-        "Reaction: water pushes swimmer forwards",
+        "Area = 6 \u00D7 4 = 24 cm\u00B2",
+        "Perimeter = 2(6 + 4) = 20 cm",
       ],
     },
-    CONCEPT_PAIRS,
     MCQ_BOOK,
+    CONCEPT_PAIRS,
+    CONCEPT_ROCKETS,
     {
       type: "short",
-      question: "Rockets work in space with no air. Explain why.",
+      question: "A circle has radius 7 cm. Work out its area using \u03C0 = 3.14.",
       modelPoints: [
-        "Rocket pushes gas out of the back",
-        "Gas pushes the rocket forwards",
+        "Area = 3.14 \u00D7 49 = 153.86",
+        "Round to 154 cm\u00B2",
       ],
     },
     {
       type: "short",
-      question: "Why don't action and reaction forces cancel out?",
-      modelPoints: ["They act on different objects"],
+      question: "Can two shapes with the same perimeter have different areas? Give an example.",
+      modelPoints: ["Yes \u2014 e.g. 3\u00D75 vs 2\u00D76 rectangle both have perimeter 16 but areas 15 and 12"],
     },
   ],
 };

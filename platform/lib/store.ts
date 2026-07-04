@@ -39,8 +39,8 @@ function seedSubmissions(): Map<string, Submission> {
   const m = new Map<string, Submission>();
   const now = Date.now();
   const stdAnswers = {
-    "2": "Every action has an equal and opposite reaction — same size, opposite direction.",
-    "3": "She pushes the water backwards, so the water pushes her forwards.",
+    "1": "Perimeter is the distance around a shape. Area is the space inside it.",
+    "5": "Area = 6 \u00D7 4 = 24 cm\u00B2. Perimeter = 2 \u00D7 (6 + 4) = 20 cm.",
   };
   m.set("priya", {
     studentId: "priya",

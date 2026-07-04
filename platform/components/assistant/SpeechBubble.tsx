@@ -130,7 +130,7 @@ export default function SpeechBubble({
         ...(side === "below" ? { top } : { bottom }),
         transformOrigin: side === "below" ? "20% -12px" : "20% calc(100% + 12px)",
       }}
-      className={`fixed z-50 max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl ${
+      className={`fixed z-50 max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-200/80 bg-white/95 p-5 shadow-2xl shadow-indigo-500/10 backdrop-blur-sm ${
         wide ? "text-lg" : ""
       }`}
     >
@@ -165,9 +165,9 @@ export default function SpeechBubble({
       )}
 
       <div className="mb-3 flex items-center justify-between">
-        <p className="inline-flex items-center gap-2 text-sm font-bold text-violet-700">
-          <Sparkles size={16} aria-hidden="true" />
-          Helper
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase text-indigo-500">
+          <Sparkles size={14} aria-hidden="true" className="text-amber-400" />
+          Geometry Coach
         </p>
         <button
           type="button"

@@ -735,7 +735,13 @@ export default function Companion({
         onClick={() => (bubbleOpen ? close() : openAsk())}
         aria-label={bubbleOpen ? "Close helper" : "Ask the helper (or press /)"}
         style={{ x: sx, y: sy, rotate: reduced ? 0 : lean }}
-        className="fixed left-0 top-0 z-[70] size-16 rounded-3xl bg-gradient-to-br from-blue-500 to-violet-600 p-1 shadow-lg shadow-blue-500/40 focus:outline-2 focus:outline-offset-2 focus:outline-blue-600"
+        animate={
+          !bubbleOpen && !reduced
+            ? { boxShadow: ["0 0 20px rgba(139,92,246,0.3)", "0 0 32px rgba(59,130,246,0.5)", "0 0 20px rgba(139,92,246,0.3)"] }
+            : {}
+        }
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        className="fixed left-0 top-0 z-[70] size-16 rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-600 p-1 shadow-xl shadow-blue-500/50 ring-1 ring-white/20 focus:outline-2 focus:outline-offset-2 focus:outline-blue-600"
       >
         <motion.div
           key={wobble}
@@ -790,10 +796,13 @@ export default function Companion({
                     e.preventDefault();
                     void runHelp(fullQuestion || "I'm stuck on this question.");
                   }
+                  if (e.key === " ") {
+                    e.stopPropagation();
+                  }
                 }}
-                rows={2}
-                placeholder="e.g. I don't get what a reaction force is"
-                className="w-full rounded-lg border border-neutral-300 p-3 text-base focus:outline-2 focus:outline-offset-1 focus:outline-blue-600"
+                rows={1}
+                placeholder="e.g. I don't understand this question"
+                className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm leading-relaxed focus:outline-2 focus:outline-offset-1 focus:outline-blue-600"
               />
               <div className="flex items-center gap-2">
                 <button
