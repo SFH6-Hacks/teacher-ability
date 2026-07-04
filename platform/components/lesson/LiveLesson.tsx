@@ -8,6 +8,7 @@ import { useLessonDeck } from "@/lib/useLessonDeck";
 import { DeckCanvas } from "@/components/lesson/DeckCanvas";
 import TtsPlayer from "@/components/slides/TtsPlayer";
 import ProfileContent from "@/components/layout/ProfileContent";
+import { speak, cancelSpeech } from "@/lib/speak";
 
 interface LiveState {
   index: number;
@@ -48,12 +49,8 @@ export function LiveLesson({ student }: { student: Student }) {
   // Blind: auto-read whatever slide is in view.
   useEffect(() => {
     if (student.profile !== "blind" || !page) return;
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const u = new SpeechSynthesisUtterance(`${page.title}. ${page.text}`);
-    u.rate = 0.95;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-    return () => window.speechSynthesis.cancel();
+    void speak(`${page.title}. ${page.text}`);
+    return () => cancelSpeech();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewIndex, student.profile]);
 

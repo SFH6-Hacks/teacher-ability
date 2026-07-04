@@ -17,18 +17,11 @@ import BrainBreak from "./BrainBreak";
 import FocusTimer from "./FocusTimer";
 import RecapPanel from "./RecapPanel";
 import Announcer, { announce } from "./Announcer";
+import { speak, cancelSpeech } from "@/lib/speak";
 
 function cardLabel(card: Deck["cards"][number]): string {
   return card.type === "concept" ? card.heading : card.question;
 }
-
-function speak(text: string) {
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate = 0.95;
-  window.speechSynthesis.speak(u);
-}
-
 function Experience({ student, deck }: { student: Student; deck: Deck }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -130,9 +123,9 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
   // ---- Blind: auto-read the card on mount / index change --------------------
   useEffect(() => {
     if (!theme.features.autoRead || done) return;
-    speak(`Card ${index + 1} of ${total}. ${cardSpeechText(deck.cards[index])}`);
+    void speak(`Card ${index + 1} of ${total}. ${cardSpeechText(deck.cards[index])}`);
     announce(`Card ${index + 1} of ${total}. ${cardLabel(deck.cards[index])}`);
-    return () => window.speechSynthesis.cancel();
+    return () => cancelSpeech();
   }, [theme.features.autoRead, done, index, total, deck.cards]);
 
   // ---- Blind: confirm a selection without revealing correctness --------------
@@ -142,7 +135,7 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
       const msg =
         "Answer recorded. Press right arrow for the next card, or h for help.";
       announce(msg);
-      speak(msg);
+      void speak(msg);
     };
     window.addEventListener("hw:selected", onSelected);
     return () => window.removeEventListener("hw:selected", onSelected);
@@ -175,7 +168,7 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
         );
       } else if (key === "r") {
         e.preventDefault();
-        speak(cardSpeechText(card));
+        void speak(cardSpeechText(card));
       } else if (key === "h") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("assistant:ask", { detail: {} }));
@@ -190,9 +183,9 @@ function Experience({ student, deck }: { student: Student; deck: Deck }) {
     if (!done) return;
     if (theme.features.autoRead) {
       const msg = `Great work, ${student.name}! You finished all ${total} cards.`;
-      speak(msg);
+      void speak(msg);
       announce(msg);
-      return () => window.speechSynthesis.cancel();
+      return () => cancelSpeech();
     }
     if (theme.features.celebrations) setBurst((b) => b + 1);
   }, [done, theme.features, student.name, total]);
