@@ -27,6 +27,7 @@ import SpeechBubble, { Typewriter, type BubbleSide } from "./SpeechBubble";
 import { buildFallbackPlan } from "./fallbackPlans";
 import { captureContext } from "./capture";
 import { useConfusionDetector } from "./useConfusionDetector";
+import { speak, cancelSpeech } from "@/lib/speak";
 
 const MAX_ASSISTS = 3;
 const SIZE = 64; // mascot px (size-16)
@@ -47,31 +48,6 @@ type Mode =
   | { kind: "plan"; plan: HelpPlan; index: number }
   | { kind: "done" }
   | { kind: "capped" };
-
-function pickVoice(): SpeechSynthesisVoice | null {
-  const voices = window.speechSynthesis.getVoices();
-  return (
-    voices.find(
-      (v) => v.lang.startsWith("en") && /natural|neural|google/i.test(v.name),
-    ) ??
-    voices.find((v) => v.lang.startsWith("en")) ??
-    null
-  );
-}
-
-function speak(text: string, onSpeaking?: (on: boolean) => void) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  const voice = pickVoice();
-  if (voice) u.voice = voice;
-  u.rate = 1;
-  u.pitch = 1.15;
-  u.onstart = () => onSpeaking?.(true);
-  u.onend = () => onSpeaking?.(false);
-  u.onerror = () => onSpeaking?.(false);
-  window.speechSynthesis.speak(u);
-}
 
 function gateSpot(step: HelpStep): string | undefined {
   return (
@@ -327,7 +303,7 @@ export default function Companion({
 
   // Stop any leftover speech / flight when the card changes.
   useEffect(() => {
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     setSpeaking(false);
     stopFlight();
     drawingRef.current = false;
@@ -339,7 +315,7 @@ export default function Companion({
     setMode({ kind: "follow" });
     setPointer(null);
     setQuestion("");
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     setSpeaking(false);
     stopFlight();
     drawingRef.current = false;
@@ -540,7 +516,7 @@ export default function Companion({
       if (advancingRef.current) return;
       advancingRef.current = true;
       flashHappy();
-      window.speechSynthesis?.cancel();
+      cancelSpeech();
       setTimeout(() => {
         advancingRef.current = false;
         // The student may have changed card (or closed) during the happy beat.
@@ -583,28 +559,35 @@ export default function Companion({
       setMode({ kind: "loading" });
 
       let plan: HelpPlan | null = null;
-      try {
-        const ctx = await captureContext();
-        const res = await fetch("/api/assist/vision", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            question: askText || undefined,
-            reason,
-            card,
-            profile,
-            registry: ctx.registry,
-            viewport: ctx.viewport,
-            imageBase64: ctx.imageBase64 ?? undefined,
-            assistNumber: n,
-          }),
-        });
-        if (res.ok) {
-          const data = (await res.json()) as { plan?: HelpPlan };
-          if (data.plan?.steps?.length) plan = data.plan;
+      
+      // Stage demo trick: default to instant hardcoded fallback for speed, 
+      // but if we append '*' to the prompt, actually hit Gemini.
+      const useRealAI = askText?.trim().endsWith("*");
+
+      if (useRealAI) {
+        try {
+          const ctx = await captureContext();
+          const res = await fetch("/api/assist/vision", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question: askText || undefined,
+              reason,
+              card,
+              profile,
+              registry: ctx.registry,
+              viewport: ctx.viewport,
+              imageBase64: ctx.imageBase64 ?? undefined,
+              assistNumber: n,
+            }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { plan?: HelpPlan };
+            if (data.plan?.steps?.length) plan = data.plan;
+          }
+        } catch {
+          // fall through to the canned plan
         }
-      } catch {
-        // fall through to the canned plan — never leave the student hanging
       }
       showStep(plan ?? buildFallbackPlan(card, profile), 0);
     },

@@ -5,8 +5,15 @@ const TIMEOUT_MS = 25_000;
 
 let client: GoogleGenAI | null = null;
 function getClient(): GoogleGenAI | null {
-  if (!process.env.GEMINI_API_KEY) return null;
-  return (client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }));
+  if (!process.env.GOOGLE_CLOUD_PROJECT) {
+    console.warn("GOOGLE_CLOUD_PROJECT is not set for Vertex AI ADC.");
+    return null;
+  }
+  return (client ??= new GoogleGenAI({
+    project: process.env.GOOGLE_CLOUD_PROJECT,
+    location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1",
+    vertexai: true,
+  } as any));
 }
 
 /**

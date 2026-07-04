@@ -26,6 +26,11 @@ export function LessonStage() {
   const [presenting, setPresenting] = useState(false);
   const [broadcasting, setBroadcasting] = useState(true);
 
+  // Demo upload state
+  const [pptUploaded, setPptUploaded] = useState(false);
+  const [pptUploading, setPptUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
   const clampedCurrent = total ? Math.min(current, total - 1) : 0;
   const page = pages[clampedCurrent];
 
@@ -97,9 +102,92 @@ export function LessonStage() {
       speech.start();
     }
   };
+  useEffect(() => {
+    if (!speech.listening) return;
+    const id = setInterval(() => {
+      // Periodically summarize what we have so far
+      if (speech.finalText.trim()) {
+        void summarize(speech.finalText);
+      }
+    }, 45000);
+    return () => clearInterval(id);
+  }, [speech.listening, speech.finalText]);
+
   const caption = speech.finalText
     ? `${speech.finalText} ${speech.interim}`.trim()
     : speech.interim;
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (!pptUploaded && !pptUploading) {
+      setPptUploading(true);
+      setTimeout(() => {
+        setPptUploading(false);
+        setPptUploaded(true);
+      }, 2500);
+    }
+  };
+
+  const handleFakeClick = () => {
+    if (!pptUploaded && !pptUploading) {
+      setPptUploading(true);
+      setTimeout(() => {
+        setPptUploading(false);
+        setPptUploaded(true);
+      }, 2500);
+    }
+  };
+
+  if (!pptUploaded) {
+    return (
+      <section className="flex flex-col gap-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm min-h-[500px]">
+        <div className="mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">Setup</p>
+          <h2 className="text-lg font-bold text-stone-900">Upload Lesson</h2>
+        </div>
+        <div
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          onClick={handleFakeClick}
+          className={`flex-1 flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors cursor-pointer ${
+            dragActive ? "border-teal-500 bg-teal-50" : "border-stone-300 bg-stone-50 hover:bg-stone-100"
+          }`}
+        >
+          {pptUploading ? (
+            <div className="flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-300">
+              <Loader2 size={32} className="animate-spin text-teal-600 mb-4" />
+              <p className="text-sm font-medium text-stone-800">Processing slides with Gemini...</p>
+              <p className="text-xs text-stone-500 mt-1">Generating alt text and contextual lesson data</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="rounded-full bg-white p-4 shadow-sm mb-4 text-teal-600">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-stone-800">Drag & drop your PowerPoint here</p>
+              <p className="text-xs text-stone-500 mt-1">or click to browse (.pptx, .pdf)</p>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

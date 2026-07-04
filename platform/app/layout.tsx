@@ -25,6 +25,8 @@ export const metadata: Metadata = {
     "A calm control surface for teachers: run one lesson, watch every student follow live, and hand out homework recast for each mind.",
 };
 
+import { GlobalShortcuts } from "@/components/layout/GlobalShortcuts";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,7 +37,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <GlobalShortcuts />
+        {children}
+      </body>
     </html>
   );
 }

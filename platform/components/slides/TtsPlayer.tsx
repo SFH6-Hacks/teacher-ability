@@ -1,41 +1,75 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Pause, Play, Square } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pause, Play, Square, Loader2 } from "lucide-react";
 
 /**
- * Shared TTS player (DESIGN.md): speaks the given text via speechSynthesis.
+ * Shared TTS player (DESIGN.md): speaks the given text via Google Cloud TTS.
  * Callers are responsible for assembling text in the mandatory read order
  * (title → body → image alt).
  */
 export default function TtsPlayer({ text }: { text: string }) {
-  const [state, setState] = useState<"idle" | "speaking" | "paused">("idle");
+  const [state, setState] = useState<"idle" | "loading" | "speaking" | "paused">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const stop = useCallback(() => {
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
     setState("idle");
   }, []);
 
   // Stop speech when the content this player reads changes or unmounts.
   useEffect(() => stop, [text, stop]);
 
-  const play = () => {
-    if (state === "paused") {
-      window.speechSynthesis.resume();
+  const play = async () => {
+    if (state === "paused" && audioRef.current) {
+      audioRef.current.play();
       setState("speaking");
       return;
     }
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95;
-    u.onend = () => setState("idle");
-    window.speechSynthesis.speak(u);
-    setState("speaking");
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    try {
+      setState("loading");
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          voiceConfig: { name: "en-US-Journey-F", languageCode: "en-US" },
+        }),
+      });
+
+      if (!res.ok) throw new Error("TTS failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setState("idle");
+        URL.revokeObjectURL(url);
+      };
+      
+      audio.play();
+      setState("speaking");
+    } catch (err) {
+      console.error(err);
+      setState("idle");
+    }
   };
 
   const pause = () => {
-    window.speechSynthesis.pause();
-    setState("paused");
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setState("paused");
+    }
   };
 
   const btn =
@@ -43,10 +77,15 @@ export default function TtsPlayer({ text }: { text: string }) {
 
   return (
     <div className="flex items-center gap-2" role="group" aria-label="Read aloud controls">
-      {state !== "speaking" ? (
+      {state === "idle" || state === "paused" ? (
         <button type="button" onClick={play} className={btn} aria-label="Read aloud">
           <Play size={16} aria-hidden="true" />
           {state === "paused" ? "Resume" : "Read aloud"}
+        </button>
+      ) : state === "loading" ? (
+        <button type="button" disabled className={btn} aria-label="Loading audio">
+          <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          Loading...
         </button>
       ) : (
         <button type="button" onClick={pause} className={btn} aria-label="Pause reading">
@@ -54,7 +93,7 @@ export default function TtsPlayer({ text }: { text: string }) {
           Pause
         </button>
       )}
-      {state !== "idle" && (
+      {(state === "speaking" || state === "paused") && (
         <button type="button" onClick={stop} className={btn} aria-label="Stop reading">
           <Square size={16} aria-hidden="true" />
           Stop
