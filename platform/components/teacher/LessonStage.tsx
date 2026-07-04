@@ -1,41 +1,75 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  ImageIcon,
   Loader2,
   Mic,
   MicOff,
+  Play,
+  X,
 } from "lucide-react";
-import { BACKUP_TRANSCRIPT } from "@/lib/demo-data";
+import { BACKUP_TRANSCRIPT, CLASS, DEMO_LESSON } from "@/lib/demo-data";
 import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
-import type { Lesson } from "@/lib/types";
+import { useLessonDeck } from "@/lib/useLessonDeck";
+import { isConnected } from "@/lib/types";
+import { DeckCanvas } from "@/components/lesson/DeckCanvas";
 
-export function LessonStage({
-  lesson,
-  slideIndex,
-  onSlide,
-  liveSync,
-  onToggleSync,
-}: {
-  lesson: Lesson;
-  slideIndex: number; // 0-based
-  onSlide: (i: number) => void;
-  liveSync: boolean;
-  onToggleSync: () => void;
-}) {
-  const slide = lesson.slides[slideIndex];
-  const total = lesson.slides.length;
+const CONNECTED_COUNT = CLASS.filter(isConnected).length;
 
+export function LessonStage() {
+  const { pages, loading, source } = useLessonDeck();
+  const total = pages.length;
+
+  const [current, setCurrent] = useState(0);
+  const [presenting, setPresenting] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(true);
+
+  const clampedCurrent = total ? Math.min(current, total - 1) : 0;
+  const page = pages[clampedCurrent];
+
+  // Broadcast the current slide (+ present state) so student tabs can follow.
+  const broadcast = useCallback((index: number, present: boolean) => {
+    fetch("/api/lesson/slide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ index, presenting: present }),
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (broadcasting && total) broadcast(clampedCurrent, presenting);
+  }, [clampedCurrent, presenting, broadcasting, total, broadcast]);
+
+  const go = useCallback(
+    (delta: number) =>
+      setCurrent((c) => Math.min(total - 1, Math.max(0, c + delta))),
+    [total],
+  );
+
+  // Present mode: fullscreen + arrow-key navigation.
+  useEffect(() => {
+    if (!presenting) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") {
+        e.preventDefault();
+        go(1);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        go(-1);
+      } else if (e.key === "Escape") {
+        setPresenting(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [presenting, go]);
+
+  // ---- Speech capture (transcript grounds the homework help) ----------------
   const speech = useSpeechRecognition();
   const [summary, setSummary] = useState<string[]>([]);
   const [summarizing, setSummarizing] = useState(false);
-
-  // `speech.supported` reads the browser API, so it differs between server and
-  // client. Gate anything that depends on it behind a mount flag so the first
-  // client render matches the server HTML (no hydration mismatch).
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const ready = mounted && speech.supported;
@@ -55,7 +89,6 @@ export function LessonStage({
       setSummarizing(false);
     }
   };
-
   const toggleMic = () => {
     if (speech.listening) {
       speech.stop();
@@ -64,7 +97,6 @@ export function LessonStage({
       speech.start();
     }
   };
-
   const caption = speech.finalText
     ? `${speech.finalText} ${speech.interim}`.trim()
     : speech.interim;
@@ -79,106 +111,104 @@ export function LessonStage({
           <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">
             Now teaching
           </p>
-          <h2 className="text-lg font-bold text-stone-900">{lesson.title}</h2>
+          <h2 className="text-lg font-bold text-stone-900">{DEMO_LESSON.title}</h2>
         </div>
-        {/* live-sync: the one control that broadcasts to every student */}
-        <button
-          type="button"
-          onClick={onToggleSync}
-          aria-pressed={liveSync}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-600 ${
-            liveSync
-              ? "bg-teal-700 text-white hover:bg-teal-800"
-              : "bg-stone-100 text-stone-500 hover:bg-stone-200"
-          }`}
-        >
-          <span
-            className={`relative flex h-2 w-2 ${liveSync ? "" : "opacity-60"}`}
-            aria-hidden="true"
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setBroadcasting((v) => !v)}
+            aria-pressed={broadcasting}
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-600 ${
+              broadcasting
+                ? "bg-teal-700 text-white hover:bg-teal-800"
+                : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+            }`}
           >
-            {liveSync && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 motion-reduce:hidden" />
-            )}
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-          </span>
-          {liveSync ? "Live sync on" : "Live sync off"}
-        </button>
-      </div>
-
-      {/* the stage — the slide, given room to breathe */}
-      <div className="rounded-xl border border-stone-200 bg-stone-50 p-8">
-        <div className="mb-4 flex items-center gap-2">
-          {lesson.slides.map((s, i) => (
-            <span
-              key={s.index}
-              className={`h-1.5 rounded-full transition-all ${
-                i === slideIndex ? "w-6 bg-teal-600" : "w-1.5 bg-stone-300"
-              }`}
-              aria-hidden="true"
-            />
-          ))}
-          <span className="ml-auto text-xs font-medium text-stone-500">
-            Slide {slideIndex + 1} of {total}
-          </span>
-        </div>
-        <h3 className="text-2xl font-bold text-stone-900">{slide.title}</h3>
-        <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-stone-700">
-          {slide.content_text}
-        </p>
-        {slide.image_alt && (
-          <p className="mt-4 flex items-start gap-2 rounded-lg bg-white p-3 text-xs text-stone-500">
-            <ImageIcon size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <span>
-              <span className="font-semibold text-stone-600">Described image:</span>{" "}
-              {slide.image_alt}
+            <span className="relative flex h-2 w-2" aria-hidden="true">
+              {broadcasting && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 motion-reduce:hidden" />
+              )}
+              <span
+                className={`relative inline-flex h-2 w-2 rounded-full ${broadcasting ? "bg-white" : "bg-stone-400"}`}
+              />
             </span>
-          </p>
-        )}
+            {broadcasting ? "Live sync on" : "Live sync off"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPresenting(true)}
+            disabled={!total}
+            className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-stone-900"
+          >
+            <Play size={14} aria-hidden="true" /> Present
+          </button>
+        </div>
       </div>
 
-      {/* controls — close to the stage but visually secondary */}
+      {/* the slide */}
+      {loading || !page ? (
+        <div className="flex aspect-video w-full items-center justify-center rounded-xl bg-stone-100 text-sm text-stone-400">
+          <Loader2 size={18} className="mr-2 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          Loading slides…
+        </div>
+      ) : (
+        <DeckCanvas page={page} />
+      )}
+
+      {/* controls */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => onSlide(Math.max(0, slideIndex - 1))}
-            disabled={slideIndex === 0}
+            onClick={() => go(-1)}
+            disabled={clampedCurrent === 0}
             className="inline-flex items-center gap-1 rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-100 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
           >
             <ChevronLeft size={16} aria-hidden="true" /> Prev
           </button>
           <button
             type="button"
-            onClick={() => onSlide(Math.min(total - 1, slideIndex + 1))}
-            disabled={slideIndex === total - 1}
+            onClick={() => go(1)}
+            disabled={total === 0 || clampedCurrent === total - 1}
             className="inline-flex items-center gap-1 rounded-lg border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-100 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
           >
             Next <ChevronRight size={16} aria-hidden="true" />
           </button>
         </div>
-        <button
-          type="button"
-          onClick={toggleMic}
-          disabled={!ready}
-          className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-600 disabled:opacity-50 ${
-            speech.listening
-              ? "bg-amber-500 text-white hover:bg-amber-600"
-              : "border border-stone-300 text-stone-700 hover:bg-stone-100"
-          }`}
-        >
-          {speech.listening ? (
-            <>
-              <MicOff size={16} aria-hidden="true" /> Stop capturing
-            </>
-          ) : (
-            <>
-              <Mic size={16} aria-hidden="true" /> Capture speech
-            </>
-          )}
-        </button>
+        <span className="text-xs font-medium text-stone-500">
+          Slide {total ? clampedCurrent + 1 : 0} of {total}
+          {source === "fallback" && " · sample slides"}
+        </span>
       </div>
 
-      {/* transcript ticker — grounds the homework help; kept low-key */}
+      {/* thumbnail rail */}
+      {total > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {pages.map((p, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setCurrent(i)}
+              aria-label={`Go to slide ${i + 1}`}
+              aria-current={i === clampedCurrent}
+              className={`w-24 shrink-0 rounded-lg p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 ${
+                i === clampedCurrent ? "ring-2 ring-teal-600" : "ring-1 ring-stone-200"
+              }`}
+            >
+              <DeckCanvas page={p} thumb />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {source === "fallback" && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Showing sample slides — drop a real export at{" "}
+          <code className="font-mono">public/lesson.pdf</code> to present it.
+        </p>
+      )}
+
+      {/* transcript capture — grounds the homework help; kept low-key */}
       <div>
         <div className="mb-1.5 flex items-center gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
@@ -190,6 +220,26 @@ export function LessonStage({
               recording
             </span>
           )}
+          <button
+            type="button"
+            onClick={toggleMic}
+            disabled={!ready}
+            className={`ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 disabled:opacity-50 ${
+              speech.listening
+                ? "bg-amber-500 text-white hover:bg-amber-600"
+                : "border border-stone-300 text-stone-700 hover:bg-stone-100"
+            }`}
+          >
+            {speech.listening ? (
+              <>
+                <MicOff size={13} aria-hidden="true" /> Stop
+              </>
+            ) : (
+              <>
+                <Mic size={13} aria-hidden="true" /> Capture speech
+              </>
+            )}
+          </button>
           {mounted && !speech.supported && (
             <button
               type="button"
@@ -197,9 +247,9 @@ export function LessonStage({
                 speech.setFinalText(BACKUP_TRANSCRIPT);
                 void summarize(BACKUP_TRANSCRIPT);
               }}
-              className="ml-auto text-xs font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-800"
+              className="text-xs font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-800"
             >
-              Use backup transcript
+              Use backup
             </button>
           )}
         </div>
@@ -221,11 +271,7 @@ export function LessonStage({
           >
             {summarizing ? (
               <p className="inline-flex items-center gap-2 text-xs text-stone-600">
-                <Loader2
-                  size={13}
-                  className="animate-spin motion-reduce:animate-none"
-                  aria-hidden="true"
-                />
+                <Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
                 Summarising with Gemini…
               </p>
             ) : (
@@ -238,6 +284,55 @@ export function LessonStage({
           </div>
         )}
       </div>
+
+      {/* Present mode — fullscreen, broadcasts to the class */}
+      {presenting && page && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-stone-950 p-6">
+          <div className="mb-4 flex items-center justify-between text-stone-300">
+            <span className="inline-flex items-center gap-2 text-sm font-semibold">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-teal-400 motion-reduce:animate-none" />
+              {broadcasting
+                ? `Broadcasting to ${CONNECTED_COUNT} students`
+                : "Live sync off"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPresenting(false)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <X size={15} aria-hidden="true" /> Exit (Esc)
+            </button>
+          </div>
+          <div className="flex flex-1 items-center justify-center">
+            <div className="w-full max-w-5xl">
+              <DeckCanvas page={page} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-6 text-stone-300">
+            <button
+              type="button"
+              onClick={() => go(-1)}
+              disabled={clampedCurrent === 0}
+              className="rounded-full bg-stone-800 p-3 hover:bg-stone-700 disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              aria-label="Previous slide"
+            >
+              <ChevronLeft size={22} aria-hidden="true" />
+            </button>
+            <span className="text-sm font-medium tabular-nums">
+              {clampedCurrent + 1} / {total}
+            </span>
+            <button
+              type="button"
+              onClick={() => go(1)}
+              disabled={clampedCurrent === total - 1}
+              className="rounded-full bg-stone-800 p-3 hover:bg-stone-700 disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              aria-label="Next slide"
+            >
+              <ChevronRight size={22} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

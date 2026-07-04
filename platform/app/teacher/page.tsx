@@ -36,8 +36,6 @@ export default function TeacherConsole() {
   }, []);
 
   const [activity, setActivity] = useState<Record<string, Activity>>(baseActivity);
-  const [slide, setSlide] = useState(0);
-  const [liveSync, setLiveSync] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [playing, setPlaying] = useState(true);
   const [elapsed, setElapsed] = useState(0);
@@ -125,13 +123,7 @@ export default function TeacherConsole() {
       >
         <div className="grid gap-5 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <LessonStage
-              lesson={DEMO_LESSON}
-              slideIndex={slide}
-              onSlide={setSlide}
-              liveSync={liveSync}
-              onToggleSync={() => setLiveSync((v) => !v)}
-            />
+            <LessonStage />
           </div>
           <div>
             {selectedConnected ? (

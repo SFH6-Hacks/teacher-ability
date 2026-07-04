@@ -9,11 +9,25 @@ const g = globalThis as unknown as {
   __submissions?: Map<string, Submission>;
   __progress?: Map<string, StudentProgress>;
   __assistedCards?: Map<string, Set<number>>;
+  __lessonState?: LessonState;
 };
 
 export const decks: Map<string, Deck> = (g.__decks ??= new Map());
 
 export const lesson: Lesson = (g.__lesson ??= structuredClone(DEMO_LESSON));
+
+// Live presentation state the teacher broadcasts and students poll.
+export interface LessonState {
+  index: number; // current slide (0-based)
+  presenting: boolean; // teacher is in Present mode
+  updatedAt: number;
+}
+
+export const lessonState: LessonState = (g.__lessonState ??= {
+  index: 0,
+  presenting: false,
+  updatedAt: Date.now(),
+});
 
 // Returned homework, keyed by student id. Seeded with a couple of scripted
 // hand-ins so the teacher's submissions list looks alive before anyone in the
