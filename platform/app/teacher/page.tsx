@@ -1,343 +1,162 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { Pause, Play } from "lucide-react";
 import {
-  Check,
-  Copy,
-  FileText,
-  Loader2,
-  Mic,
-  MicOff,
-  Presentation,
-  Sparkles,
-  Upload,
-} from "lucide-react";
-import { BACKUP_TRANSCRIPT, ROSTER } from "@/lib/demo-data";
-import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
-import type { Deck } from "@/lib/types";
+  ACTIVITY_LOOP_SECONDS,
+  ACTIVITY_SCRIPT,
+  CLASS,
+  DEMO_LESSON,
+  INITIAL_ACTIVITY,
+} from "@/lib/demo-data";
+import { type Activity, isConnected } from "@/lib/types";
+import { LessonStage } from "@/components/teacher/LessonStage";
+import { SeatingPlan } from "@/components/teacher/SeatingPlan";
+import { StudentDetail } from "@/components/teacher/StudentDetail";
+import { HomeworkPanel } from "@/components/teacher/HomeworkPanel";
 
-function FileDrop({
-  label,
-  icon,
-  file,
-  onFile,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  file: string | null;
-  onFile: (name: string) => void;
-}) {
-  const id = label.toLowerCase().replace(/\s/g, "-");
-  return (
-    <label
-      htmlFor={id}
-      className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-neutral-600 bg-neutral-800/50 p-8 text-center hover:border-blue-500 focus-within:outline-2 focus-within:outline-blue-500"
-    >
-      {icon}
-      <span className="font-semibold text-neutral-100">{label}</span>
-      {file ? (
-        <span className="inline-flex items-center gap-1 text-sm text-green-400">
-          <Check size={14} aria-hidden="true" /> {file}
-        </span>
-      ) : (
-        <span className="text-sm text-neutral-400">
-          Drop a file or click to browse
-        </span>
-      )}
-      <input
-        id={id}
-        type="file"
-        className="sr-only"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onFile(f.name);
-        }}
-      />
-    </label>
-  );
+// Display clock starts mid-lesson so the room reads as "already in progress".
+const LESSON_START_SECONDS = 14 * 60 + 32;
+
+// Only connected students carry live activity / a homework deck.
+const CONNECTED = CLASS.filter(isConnected);
+
+function fmt(total: number): string {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function RecordTab() {
-  const speech = useSpeechRecognition();
-  const [summary, setSummary] = useState<string[]>([]);
-  const [summarizing, setSummarizing] = useState(false);
+export default function TeacherConsole() {
+  const baseActivity = useCallback((): Record<string, Activity> => {
+    const base: Record<string, Activity> = {};
+    for (const s of CONNECTED) base[s.id] = "following";
+    return { ...base, ...INITIAL_ACTIVITY };
+  }, []);
 
-  const summarize = async (transcript: string) => {
-    if (!transcript.trim()) return;
-    setSummarizing(true);
-    try {
-      const res = await fetch("/api/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript }),
-      });
-      const data = (await res.json()) as { summary?: string[] };
-      if (data.summary) setSummary(data.summary);
-    } finally {
-      setSummarizing(false);
-    }
-  };
+  const [activity, setActivity] = useState<Record<string, Activity>>(baseActivity);
+  const [slide, setSlide] = useState(0);
+  const [liveSync, setLiveSync] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(true);
+  const [elapsed, setElapsed] = useState(0);
+  const secRef = useRef(0);
 
-  const loadBackup = () => {
-    speech.setFinalText(BACKUP_TRANSCRIPT);
-    void summarize(BACKUP_TRANSCRIPT);
-  };
+  // The scripted room: one tick a second, replaying the timeline on a loop so
+  // students drift and reconnect on stage without any real telemetry.
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      secRef.current += 1;
+      setElapsed(secRef.current);
+      const pos = secRef.current % ACTIVITY_LOOP_SECONDS;
+      if (pos === 0) {
+        setActivity(baseActivity());
+      } else {
+        const beat = ACTIVITY_SCRIPT.find((b) => b.at === pos);
+        if (beat) setActivity((a) => ({ ...a, ...beat.patch }));
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [playing, baseActivity]);
+
+  const followingCount = useMemo(
+    () =>
+      CONNECTED.filter((s) => (activity[s.id] ?? "following") === "following")
+        .length,
+    [activity],
+  );
+
+  const selected = selectedId ? CLASS.find((s) => s.id === selectedId) ?? null : null;
+  const selectedConnected = selected && isConnected(selected) ? selected : null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            if (speech.listening) {
-              speech.stop();
-              void summarize(speech.finalText);
-            } else {
-              speech.start();
-            }
-          }}
-          disabled={!speech.supported}
-          className={`inline-flex items-center gap-2 rounded-lg px-5 py-3 font-semibold focus:outline-2 focus:outline-offset-2 focus:outline-blue-500 disabled:opacity-50 ${
-            speech.listening
-              ? "bg-red-600 text-white hover:bg-red-700"
-              : "bg-blue-600 text-white hover:bg-blue-700"
-          }`}
-        >
-          {speech.listening ? (
-            <>
-              <MicOff size={18} aria-hidden="true" /> Stop recording
-            </>
-          ) : (
-            <>
-              <Mic size={18} aria-hidden="true" /> Record your lesson
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={loadBackup}
-          className="rounded-lg border border-neutral-600 px-4 py-3 text-sm font-semibold text-neutral-200 hover:bg-neutral-800 focus:outline-2 focus:outline-offset-2 focus:outline-blue-500"
-        >
-          Use backup transcript
-        </button>
-        {!speech.supported && (
-          <p className="text-sm text-amber-400">
-            Speech recognition isn&apos;t available in this browser — use the
-            backup transcript.
-          </p>
-        )}
-      </div>
+    <div className="min-h-screen bg-stone-100 text-stone-900">
+      <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/85 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
+          <Link
+            href="/"
+            className="wordmark text-2xl leading-none text-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
+          >
+            Recast
+          </Link>
+          <span className="hidden h-6 w-px bg-stone-200 sm:block" aria-hidden="true" />
+          <div className="hidden min-w-0 sm:block">
+            <p className="truncate text-sm font-semibold text-stone-800">
+              {DEMO_LESSON.title}
+            </p>
+            <p className="text-xs text-stone-500">
+              Year 9 Science · Period 3 · {CLASS.length} students
+            </p>
+          </div>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-neutral-300">
-          Transcript {speech.listening && <span className="text-red-400">● live</span>}
-        </h3>
-        <div
-          aria-live="polite"
-          className="min-h-28 rounded-lg border border-neutral-700 bg-neutral-900 p-4 text-sm leading-relaxed text-neutral-200"
-        >
-          {speech.finalText || (
-            <span className="text-neutral-500">
-              Your speech appears here and grounds the homework help for every
-              student.
+          <div className="ml-auto flex items-center gap-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-semibold tabular-nums text-stone-600">
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-amber-500 motion-safe:animate-pulse"
+                aria-hidden="true"
+              />
+              Live {fmt(LESSON_START_SECONDS + elapsed)}
             </span>
-          )}
-          <span className="text-neutral-500"> {speech.interim}</span>
+            <button
+              type="button"
+              onClick={() => setPlaying((p) => !p)}
+              aria-pressed={playing}
+              className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+            >
+              {playing ? (
+                <>
+                  <Pause size={13} aria-hidden="true" /> Simulating
+                </>
+              ) : (
+                <>
+                  <Play size={13} aria-hidden="true" /> Paused
+                </>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div aria-live="polite">
-        {summarizing && (
-          <p className="inline-flex items-center gap-2 text-sm text-neutral-300">
-            <Loader2 size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-            Summarizing with Gemini…
-          </p>
-        )}
-        {summary.length > 0 && (
-          <div className="rounded-lg border-l-4 border-blue-500 bg-neutral-800 p-4">
-            <h3 className="mb-2 text-sm font-semibold text-blue-300">
-              Lesson recap (what students will see)
-            </h3>
-            <ul className="list-disc space-y-1 pl-5 text-neutral-100">
-              {summary.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
+      <main
+        id="main"
+        className="mx-auto max-w-7xl space-y-5 px-6 py-6"
+      >
+        <div className="grid gap-5 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <LessonStage
+              lesson={DEMO_LESSON}
+              slideIndex={slide}
+              onSlide={setSlide}
+              liveSync={liveSync}
+              onToggleSync={() => setLiveSync((v) => !v)}
+            />
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RosterCard({ student }: { student: (typeof ROSTER)[number] }) {
-  const [state, setState] = useState<"idle" | "loading" | "done">("idle");
-  const [source, setSource] = useState<Deck["generatedBy"] | null>(null);
-  const [copied, setCopied] = useState(false);
-  const link = `/hw/${student.id}`;
-
-  const generate = async () => {
-    setState("loading");
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: student.id }),
-      });
-      const data = (await res.json()) as { deck?: Deck };
-      setSource(data.deck?.generatedBy ?? "fallback");
-    } catch {
-      setSource("fallback");
-    }
-    setState("done");
-  };
-
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-neutral-700 bg-neutral-800/60 p-5">
-      <div>
-        <h3 className="text-lg font-bold text-white">{student.name}</h3>
-        <p className="text-sm font-semibold text-blue-300">{student.profileLabel}</p>
-        <p className="mt-1 text-sm text-neutral-400">{student.needs}</p>
-      </div>
-      <div className="mt-auto space-y-2" aria-live="polite">
-        <button
-          type="button"
-          onClick={() => void generate()}
-          disabled={state === "loading"}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 focus:outline-2 focus:outline-offset-2 focus:outline-blue-500"
-        >
-          {state === "loading" ? (
-            <>
-              <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              Personalising for {student.name}…
-            </>
-          ) : (
-            <>
-              <Sparkles size={16} aria-hidden="true" />
-              {state === "done" ? "Regenerate" : "Generate homework"}
-            </>
-          )}
-        </button>
-        {state === "done" && (
-          <div className="flex items-center gap-2">
-            <Link
-              href={link}
-              className="flex-1 truncate rounded-lg border border-neutral-600 px-3 py-2 text-center text-sm font-semibold text-green-400 hover:bg-neutral-700 focus:outline-2 focus:outline-blue-500"
-            >
-              Open {student.name}&apos;s homework
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                void navigator.clipboard.writeText(
-                  `${window.location.origin}${link}`,
-                );
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-              aria-label="Copy student link"
-              className="rounded-lg border border-neutral-600 p-2 text-neutral-300 hover:bg-neutral-700 focus:outline-2 focus:outline-blue-500"
-            >
-              {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-            </button>
-          </div>
-        )}
-        {state === "done" && source === "fallback" && (
-          <p className="text-xs text-amber-400">
-            Gemini unavailable — using the prepared version.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default function TeacherPage() {
-  const [tab, setTab] = useState<"upload" | "record">("upload");
-  const [hwFile, setHwFile] = useState<string | null>(null);
-  const [slidesFile, setSlidesFile] = useState<string | null>(null);
-
-  const tabBtn = (active: boolean) =>
-    `rounded-lg px-4 py-2 text-sm font-semibold focus:outline-2 focus:outline-offset-2 focus:outline-blue-500 ${
-      active ? "bg-blue-600 text-white" : "text-neutral-300 hover:bg-neutral-800"
-    }`;
-
-  return (
-    <div className="min-h-screen bg-neutral-900 text-neutral-100">
-      <main id="main" className="mx-auto max-w-4xl space-y-10 px-6 py-10">
-        <header>
-          <p className="font-mono text-xs uppercase tracking-widest text-blue-400">
-            Every Mind — teacher
-          </p>
-          <h1 className="mt-1 text-3xl font-bold text-white">
-            Set up today&apos;s homework
-          </h1>
-          <p className="mt-2 max-w-prose text-neutral-400">
-            Add your lesson material, then generate a personalised version of
-            the homework for each student. One upload — every mind gets their
-            own way in.
-          </p>
-        </header>
-
-        <section aria-label="Lesson material" className="space-y-4">
-          <div role="tablist" aria-label="How to add your lesson" className="flex gap-2">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "upload"}
-              onClick={() => setTab("upload")}
-              className={tabBtn(tab === "upload")}
-            >
-              <span className="inline-flex items-center gap-2">
-                <Upload size={16} aria-hidden="true" /> Upload files
-              </span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "record"}
-              onClick={() => setTab("record")}
-              className={tabBtn(tab === "record")}
-            >
-              <span className="inline-flex items-center gap-2">
-                <Mic size={16} aria-hidden="true" /> Record yourself teaching
-              </span>
-            </button>
-          </div>
-
-          {tab === "upload" ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FileDrop
-                label="Homework"
-                icon={<FileText size={28} className="text-blue-400" aria-hidden="true" />}
-                file={hwFile}
-                onFile={setHwFile}
+          <div>
+            {selectedConnected ? (
+              <StudentDetail
+                student={selectedConnected}
+                activity={activity[selectedConnected.id] ?? "following"}
+                onSetActivity={(a) =>
+                  setActivity((prev) => ({ ...prev, [selectedConnected.id]: a }))
+                }
+                onClose={() => setSelectedId(null)}
               />
-              <FileDrop
-                label="Slides"
-                icon={<Presentation size={28} className="text-violet-400" aria-hidden="true" />}
-                file={slidesFile}
-                onFile={setSlidesFile}
-              />
-              <p className="text-xs text-neutral-500 sm:col-span-2">
-                Hackathon demo: files map to the bundled “Newton&apos;s Third
-                Law” lesson and worksheet.
-              </p>
-            </div>
-          ) : (
-            <RecordTab />
-          )}
-        </section>
-
-        <section aria-label="Class roster" className="space-y-4">
-          <h2 className="text-xl font-bold text-white">Your class</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {ROSTER.map((s) => (
-              <RosterCard key={s.id} student={s} />
-            ))}
+            ) : (
+              <HomeworkPanel students={CLASS} />
+            )}
           </div>
-        </section>
+        </div>
+
+        <SeatingPlan
+          students={CLASS}
+          activity={activity}
+          selectedId={selectedId}
+          onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
+          followingCount={followingCount}
+          connectedCount={CONNECTED.length}
+        />
       </main>
     </div>
   );

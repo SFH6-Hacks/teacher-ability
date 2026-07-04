@@ -1,4 +1,12 @@
-import type { Deck, HomeworkCard, Lesson, Profile, Student } from "./types";
+import type {
+  Activity,
+  ClassMember,
+  Deck,
+  HomeworkCard,
+  Lesson,
+  Profile,
+  Student,
+} from "./types";
 
 export const ROSTER: Student[] = [
   {
@@ -30,6 +38,89 @@ export const ROSTER: Student[] = [
     needs: "Text-first — lesson recap in writing, nothing audio-only",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// The full class. ROSTER above stays the 4 "featured" students that have real
+// /hw views wired up. CLASS is everyone in the room, shown on the seating plan
+// — but only students with an accessibility need get a Recast laptop, so only
+// they carry a `profile` (connected); the rest are regular students, present
+// but not on the app. Seats are laid out row-major.
+// ---------------------------------------------------------------------------
+
+export const SEAT_COLS = 6;
+
+export const PROFILE_NEEDS: Record<Profile, string> = {
+  dyslexia: "Short chunks, calm left-aligned typography, no text walls",
+  adhd: "One clear next step at a time, small wins, visible progress",
+  blind: "Linear speakable structure, described images, text-to-speech",
+  deaf: "Text-first — lesson recap in writing, nothing audio-only",
+};
+
+// [name, profile?, id?, featured?] — a profile means connected to Recast; no
+// profile means a regular student. id defaults to the lowercased first name.
+const CLASS_SEED: [string, Profile?, string?, boolean?][] = [
+  ["Aisha", "dyslexia", "aisha", true],
+  ["Marcus"],
+  ["Priya", "blind"],
+  ["Tom", "deaf", "tom", true],
+  ["Chloe"],
+  ["Ethan"],
+  ["Leo", "adhd", "leo", true],
+  ["Hannah"],
+  ["Sam", "blind", "sam", true],
+  ["Noah", "dyslexia"],
+  ["Zara"],
+  ["Oliver"],
+  ["Mia"],
+  ["Jacob"],
+  ["Amara", "deaf"],
+  ["Finn"],
+  ["Grace"],
+  ["Ravi"],
+  ["Isla"],
+  ["Dylan"],
+  ["Sophia"],
+  ["Kai"],
+  ["Lena", "adhd"],
+  ["Ben"],
+];
+
+export const CLASS: ClassMember[] = CLASS_SEED.map(
+  ([name, profile, id, featured]) => ({
+    id: id ?? name.toLowerCase(),
+    name,
+    profile,
+    featured,
+  }),
+);
+
+// Live activity at the moment the demo opens: a lesson already in progress —
+// most connected students are following, one has drifted ahead, one is off-task.
+export const INITIAL_ACTIVITY: Record<string, Activity> = {
+  amara: "ahead",
+  lena: "away",
+};
+
+// Scripted timeline the seating plan loops through, so the room feels alive on
+// stage without any real telemetry. Times are seconds from the start of a loop;
+// each patch is applied on top of the running state, then it wraps. Only ever
+// references connected students — regular students have no app activity.
+export interface ActivityBeat {
+  at: number;
+  patch: Record<string, Activity>;
+}
+
+export const ACTIVITY_SCRIPT: ActivityBeat[] = [
+  { at: 6, patch: { sam: "ahead" } },
+  { at: 11, patch: { leo: "hand" } },
+  { at: 16, patch: { amara: "following", noah: "away" } },
+  { at: 22, patch: { sam: "following", priya: "hand" } },
+  { at: 28, patch: { leo: "homework", aisha: "ahead" } },
+  { at: 34, patch: { noah: "following", lena: "following", priya: "following" } },
+  { at: 40, patch: { aisha: "following", leo: "following" } },
+];
+
+export const ACTIVITY_LOOP_SECONDS = 46;
 
 export const DEMO_LESSON: Lesson = {
   id: "newton-3",
@@ -322,4 +413,20 @@ export function fallbackDeck(studentId: string, profile: Profile): Deck {
 
 export function getStudent(id: string): Student | undefined {
   return ROSTER.find((s) => s.id === id);
+}
+
+export function getClassMember(id: string): ClassMember | undefined {
+  return CLASS.find((s) => s.id === id);
+}
+
+// The prompt text a student answers, or null for recap-only "concept" cards.
+export function questionText(card: HomeworkCard): string | null {
+  switch (card.type) {
+    case "mcq":
+    case "short":
+    case "steps":
+      return card.question;
+    default:
+      return null;
+  }
 }

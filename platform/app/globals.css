@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
+/*
+ * Recast design tokens — a calm classroom control surface.
+ * Warm off-white base (not stark white), deep-teal primary used sparingly,
+ * amber reserved for live status only. Profile hues live in lib/profiles.ts.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f4f1;
+  --foreground: #1c2320;
 }
 
 @theme inline {
@@ -10,17 +15,19 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-serif: var(--font-fraunces);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* The one typographic signature — the Recast wordmark. */
+.wordmark {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-optical-sizing: auto;
 }
