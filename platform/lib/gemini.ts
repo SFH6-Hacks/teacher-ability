@@ -44,3 +44,43 @@ export async function generateJson<T>(opts: {
     return null;
   }
 }
+
+export type MultimodalPart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } };
+
+/**
+ * Multimodal variant of generateJson — accepts text + inline image parts
+ * (e.g. a screenshot of the student's screen). Same null-on-failure contract.
+ */
+export async function generateJsonMultimodal<T>(opts: {
+  system: string;
+  parts: MultimodalPart[];
+  schema: object;
+}): Promise<T | null> {
+  const ai = getClient();
+  if (!ai) return null;
+  try {
+    const result = await Promise.race([
+      ai.models.generateContent({
+        model: MODEL,
+        contents: [{ role: "user", parts: opts.parts }],
+        config: {
+          systemInstruction: opts.system,
+          responseMimeType: "application/json",
+          responseSchema: opts.schema,
+          temperature: 0.4,
+        },
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("gemini timeout")), TIMEOUT_MS),
+      ),
+    ]);
+    const text = result.text;
+    if (!text) return null;
+    return JSON.parse(text) as T;
+  } catch (err) {
+    console.error("[gemini]", err instanceof Error ? err.message : err);
+    return null;
+  }
+}

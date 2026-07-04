@@ -6,6 +6,25 @@ export interface Student {
   profile: Profile;
   profileLabel: string;
   needs: string; // one-line summary shown on teacher roster
+  // Rich profile — all optional so existing teacher views are unaffected.
+  age?: number;
+  grade?: string;
+  avatar?: { emoji: string; color: string };
+  interests?: string[];
+  strengths?: string[];
+  accommodations?: string[];
+  readingLevel?: string;
+  preferredInput?: ("keyboard" | "voice" | "mouse" | "touch")[];
+  preferredOutput?: ("text" | "audio" | "visual")[];
+  notes?: string;
+}
+
+export interface StudentProgress {
+  cardsCompleted: number;
+  totalCards: number;
+  assistsUsed: number;
+  streak: number; // consecutive cards completed without an assist
+  lastActive?: string; // ISO timestamp
 }
 
 // What a student is doing on their side of the platform, shown live on the
@@ -78,4 +97,75 @@ export interface WalkthroughStep {
 
 export interface Walkthrough {
   steps: WalkthroughStep[];
+}
+
+// ---------------------------------------------------------------------------
+// Mascot help plans (v2 assistant). Endpoints are flattened ({spot?, x?, y?})
+// because Gemini structured output does not support union types.
+// ---------------------------------------------------------------------------
+
+export type PointerKind =
+  | "arrow-straight"
+  | "arrow-curved"
+  | "region"
+  | "circle"
+  | "underline";
+
+export interface PointerEnd {
+  spot?: string; // data-spot id — preferred over raw coords
+  x?: number; // viewport px
+  y?: number;
+}
+
+export interface HelpPointer {
+  kind: PointerKind;
+  targetSpot?: string;
+  from?: PointerEnd;
+  to?: PointerEnd;
+  rect?: { x1: number; y1: number; x2: number; y2: number }; // region: top-left → bottom-right, viewport px
+}
+
+// One flat shape object with a kind discriminator (no unions for Gemini).
+export interface DiagramShape {
+  kind: "line" | "polygon" | "circle" | "text" | "angle-mark";
+  x1?: number;
+  y1?: number;
+  x2?: number;
+  y2?: number;
+  points?: number[]; // polygon: [x1, y1, x2, y2, ...]
+  cx?: number;
+  cy?: number;
+  r?: number;
+  x?: number;
+  y?: number;
+  text?: string;
+  startDeg?: number;
+  endDeg?: number;
+  label?: string;
+}
+
+export interface Diagram {
+  kind: "svg-spec";
+  width: number;
+  height: number;
+  title?: string;
+  shapes: DiagramShape[];
+}
+
+export interface HelpGate {
+  type: "hover-target" | "click-target" | "mini-check" | "got-it";
+  question?: string;
+  expected?: string;
+}
+
+export interface HelpStep {
+  say: string; // ONE short sentence shown in the mascot's speech bubble
+  pointer?: HelpPointer;
+  diagram?: Diagram;
+  gate: HelpGate;
+}
+
+export interface HelpPlan {
+  steps: HelpStep[];
+  mood?: "encouraging" | "concerned" | "celebratory";
 }

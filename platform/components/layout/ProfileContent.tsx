@@ -1,14 +1,10 @@
 import type { Profile } from "@/lib/types";
+import { PROFILE_THEMES } from "@/components/homework/profileTheme";
 
-// DESIGN.md profile typography rules — student reading content only.
-const profileClasses: Record<Profile, string> = {
-  dyslexia:
-    "font-sans text-left leading-loose max-w-[65ch] space-y-6 text-lg tracking-normal",
-  adhd: "font-sans space-y-6 text-base leading-relaxed",
-  blind: "font-sans space-y-4 text-lg leading-relaxed",
-  deaf: "font-sans space-y-4 text-lg leading-relaxed",
-};
-
+/**
+ * Wraps student reading content in the profile's typography rules
+ * (spacing, measure, size) and font (Lexend for dyslexia).
+ */
 export default function ProfileContent({
   profile,
   children,
@@ -16,5 +12,10 @@ export default function ProfileContent({
   profile: Profile;
   children: React.ReactNode;
 }) {
-  return <div className={profileClasses[profile]}>{children}</div>;
+  const theme = PROFILE_THEMES[profile];
+  return (
+    <div className={`${theme.content} ${theme.fontClassName ?? "font-sans"}`}>
+      {children}
+    </div>
+  );
 }
