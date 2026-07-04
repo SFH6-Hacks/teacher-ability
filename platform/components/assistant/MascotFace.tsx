@@ -13,9 +13,11 @@ export type Expression = "idle" | "thinking" | "happy" | "concerned";
 export default function MascotFace({
   expression,
   pupilOffset,
+  speaking,
 }: {
   expression: Expression;
   pupilOffset: { x: number; y: number };
+  speaking?: boolean;
 }) {
   const reduced = useReducedMotion();
   const [blink, setBlink] = useState(false);
@@ -105,8 +107,32 @@ export default function MascotFace({
         </motion.g>
       ))}
 
+      {/* talking mouth: open/close loop while speech synthesis is playing */}
+      {speaking && (
+        <motion.ellipse
+          cx={32}
+          cy={46}
+          rx={4.5}
+          ry={4.5}
+          fill="rgba(30,27,75,0.55)"
+          stroke="rgba(255,255,255,0.95)"
+          strokeWidth={2.2}
+          animate={
+            reduced
+              ? { scaleY: 0.9 }
+              : { scaleY: [0.35, 1.1, 0.55, 1.3, 0.45, 1] }
+          }
+          transition={
+            reduced
+              ? undefined
+              : { duration: 0.9, repeat: Infinity, ease: "easeInOut" }
+          }
+          style={{ originX: "50%", originY: "50%", transformBox: "fill-box" }}
+        />
+      )}
+
       {/* mouth per expression */}
-      {expression === "idle" && (
+      {!speaking && expression === "idle" && (
         <path
           d="M 25 45 Q 32 50 39 45"
           fill="none"
@@ -115,7 +141,7 @@ export default function MascotFace({
           strokeLinecap="round"
         />
       )}
-      {expression === "thinking" && (
+      {!speaking && expression === "thinking" && (
         <path
           d="M 26 46.5 L 38 46.5"
           fill="none"
@@ -124,7 +150,7 @@ export default function MascotFace({
           strokeLinecap="round"
         />
       )}
-      {expression === "happy" && (
+      {!speaking && expression === "happy" && (
         <path
           d="M 21 42 Q 32 54 43 42"
           fill="rgba(255,255,255,0.25)"
@@ -133,7 +159,7 @@ export default function MascotFace({
           strokeLinecap="round"
         />
       )}
-      {expression === "concerned" && (
+      {!speaking && expression === "concerned" && (
         <ellipse
           cx={32}
           cy={46.5}

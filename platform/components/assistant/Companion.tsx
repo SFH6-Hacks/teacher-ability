@@ -1,7 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+  useVelocity,
+  type AnimationPlaybackControls,
+} from "framer-motion";
 import { Mic, MicOff, Send } from "lucide-react";
 import type {
   HelpGate,
@@ -11,16 +20,18 @@ import type {
   Profile,
 } from "@/lib/types";
 import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
-import AnnotationLayer from "./AnnotationLayer";
+import AnnotationLayer, { type StrokeGeometry } from "./AnnotationLayer";
 import DiagramCanvas from "./DiagramCanvas";
 import MascotFace, { type Expression } from "./MascotFace";
-import SpeechBubble, { Typewriter } from "./SpeechBubble";
+import SpeechBubble, { Typewriter, type BubbleSide } from "./SpeechBubble";
 import { buildFallbackPlan } from "./fallbackPlans";
 import { captureContext } from "./capture";
 import { useConfusionDetector } from "./useConfusionDetector";
 
 const MAX_ASSISTS = 3;
 const SIZE = 64; // mascot px (size-16)
+const BUBBLE_H = 340; // worst-case bubble height budget for side/clamp maths
+const PEN = { x: 54, y: 54 }; // crayon tip offset within the mascot's body
 
 const CAPPED_MESSAGE =
   "You've had three helps on this one — now it's your turn. Have a real go, and if you're still stuck, ask your teacher. You've got this!";
@@ -37,10 +48,29 @@ type Mode =
   | { kind: "done" }
   | { kind: "capped" };
 
-function speak(text: string) {
+function pickVoice(): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  return (
+    voices.find(
+      (v) => v.lang.startsWith("en") && /natural|neural|google/i.test(v.name),
+    ) ??
+    voices.find((v) => v.lang.startsWith("en")) ??
+    null
+  );
+}
+
+function speak(text: string, onSpeaking?: (on: boolean) => void) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  const u = new SpeechSynthesisUtterance(text);
+  const voice = pickVoice();
+  if (voice) u.voice = voice;
+  u.rate = 1;
+  u.pitch = 1.15;
+  u.onstart = () => onSpeaking?.(true);
+  u.onend = () => onSpeaking?.(false);
+  u.onerror = () => onSpeaking?.(false);
+  window.speechSynthesis.speak(u);
 }
 
 function gateSpot(step: HelpStep): string | undefined {
@@ -200,8 +230,16 @@ export default function Companion({
   const [happyFlash, setHappyFlash] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(true);
+  const [speaking, setSpeaking] = useState(false);
+  const [drawing, setDrawing] = useState(false);
+  const [wobble, setWobble] = useState(0);
+  const [bubbleSide, setBubbleSide] = useState<BubbleSide>("above");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drawingRef = useRef(false);
+  const drawTokenRef = useRef(0);
+  const tracedTokenRef = useRef(0);
+  const controlsRef = useRef<AnimationPlaybackControls[]>([]);
   const speech = useSpeechRecognition();
 
   // Annotation pointer for the current step (measured after scroll settles).
@@ -220,18 +258,26 @@ export default function Companion({
   const y = useMotionValue(0);
   const sx = useSpring(x, { stiffness: 150, damping: 18, mass: 0.4 });
   const sy = useSpring(y, { stiffness: 150, damping: 18, mass: 0.4 });
+  // lean into the direction of travel — sells the "flying" feel for free
+  const vx = useVelocity(sx);
+  const lean = useTransform(vx, [-1500, 1500], [-9, 9], { clamp: true });
+  const progress = useMotionValue(0);
 
-  const bubbleOpen = mode.kind !== "follow";
+  // The bubble hides while the mascot is mid-flight drawing an annotation.
+  const bubbleOpen = mode.kind !== "follow" && !drawing;
 
-  const dock = useCallback(() => {
+  const stopFlight = useCallback(() => {
+    for (const c of controlsRef.current) c.stop();
+    controlsRef.current = [];
+  }, []);
+
+  // Follow the cursor while idle (the mascot settles in place — never a
+  // corner — whenever it has something to say), and always aim the pupils
+  // at the cursor.
+  useEffect(() => {
+    // initial perch (also the resting spot on touch devices / reduced motion)
     x.set(window.innerWidth - SIZE - 24);
     y.set(window.innerHeight - SIZE - 24);
-  }, [x, y]);
-
-  // Follow the cursor (docked under reduced motion / while a bubble is open),
-  // and always aim the pupils at the cursor.
-  useEffect(() => {
-    dock();
     let raf = 0;
     const onMove = (e: PointerEvent) => {
       setMode((m) => {
@@ -260,25 +306,46 @@ export default function Companion({
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMove);
     };
-  }, [reduced, x, y, sx, sy, dock]);
+  }, [reduced, x, y, sx, sy]);
 
-  // Dock bottom-right whenever a bubble is open (the bubble anchors to it).
-  useEffect(() => {
-    if (bubbleOpen) dock();
-  }, [bubbleOpen, dock]);
+  // When a bubble opens, the mascot settles right where it is: just pick the
+  // side with room for the bubble and nudge within the viewport. No corner.
+  // Layout effect so the side is right before the bubble's first paint.
+  useLayoutEffect(() => {
+    if (!bubbleOpen) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const below = y.get() + SIZE + BUBBLE_H + 16 < vh;
+    setBubbleSide(below ? "below" : "above");
+    x.set(Math.min(Math.max(x.get(), 8), vw - SIZE - 8));
+    y.set(
+      below
+        ? Math.min(Math.max(y.get(), 8), vh - SIZE - 8)
+        : Math.max(y.get(), BUBBLE_H + 24),
+    );
+  }, [bubbleOpen, x, y]);
 
-  // Stop any leftover speech when the card changes.
+  // Stop any leftover speech / flight when the card changes.
   useEffect(() => {
     window.speechSynthesis?.cancel();
-  }, [cardKey]);
+    setSpeaking(false);
+    stopFlight();
+    drawingRef.current = false;
+    setDrawing(false);
+    progress.set(0);
+  }, [cardKey, stopFlight, progress]);
 
   const close = useCallback(() => {
     setMode({ kind: "follow" });
     setPointer(null);
     setQuestion("");
     window.speechSynthesis?.cancel();
-    if (reduced) dock();
-  }, [reduced, dock]);
+    setSpeaking(false);
+    stopFlight();
+    drawingRef.current = false;
+    setDrawing(false);
+    progress.set(0);
+  }, [stopFlight, progress]);
 
   const flashHappy = useCallback((ms = 800) => {
     setHappyFlash(true);
@@ -286,10 +353,11 @@ export default function Companion({
     flashTimer.current = setTimeout(() => setHappyFlash(false), ms);
   }, []);
 
-  // blind hears everything; dyslexia hears steps as reading support; deaf never.
-  const speakForProfile = useCallback(
+  // The mascot talks to everyone except deaf students (they get the wide,
+  // text-first bubble instead). The face lip-syncs while it speaks.
+  const speakAloud = useCallback(
     (text: string) => {
-      if (profile === "blind" || profile === "dyslexia") speak(text);
+      if (profile !== "deaf") speak(text, setSpeaking);
     },
     [profile],
   );
@@ -297,12 +365,12 @@ export default function Companion({
   const openAsk = useCallback(() => {
     if ((assistCounts[cardKey] ?? 0) >= MAX_ASSISTS) {
       setMode({ kind: "capped" });
-      if (profile === "blind") speak(CAPPED_MESSAGE);
+      speakAloud(CAPPED_MESSAGE);
       return;
     }
     setMode({ kind: "ask" });
     setTimeout(() => inputRef.current?.focus(), 50);
-  }, [cardKey, assistCounts, profile]);
+  }, [cardKey, assistCounts, speakAloud]);
 
   // ---- confusion detection -------------------------------------------------
   const { trigger, clear } = useConfusionDetector({
@@ -313,41 +381,19 @@ export default function Companion({
   // Render-phase adjustment: a fresh trigger flips us straight into offer mode.
   if (trigger) {
     if (mode.kind === "follow" && (assistCounts[cardKey] ?? 0) < MAX_ASSISTS) {
+      // being shaken visibly rattles the mascot before it offers help
+      if (trigger.reason === "mouse-shake") setWobble((w) => w + 1);
       setMode({ kind: "offer", reason: trigger.reason });
     }
     clear();
   }
 
-  // Blind students hear the offer instead of reading the bubble.
+  // The offer is spoken so it lands even if the student isn't looking at it.
   useEffect(() => {
-    if (mode.kind === "offer" && profile === "blind") speak(OFFER_MESSAGE);
-  }, [mode.kind, profile]);
+    if (mode.kind === "offer") speakAloud(OFFER_MESSAGE);
+  }, [mode.kind, speakAloud]);
 
   // ---- the help plan flow --------------------------------------------------
-
-  const showStep = useCallback(
-    (plan: HelpPlan, index: number) => {
-      setMode({ kind: "plan", plan, index });
-      setPointer(null);
-      setShowSkip(false);
-      setDiagramOpen(true);
-      const step = plan.steps[index];
-
-      if (profile !== "blind" && step.pointer) {
-        const spot = gateSpot(step);
-        const el = spot
-          ? document.querySelector<HTMLElement>(`[data-spot="${CSS.escape(spot)}"]`)
-          : null;
-        if (el) {
-          el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
-        }
-        // measure/draw after the scroll settles
-        setTimeout(() => setPointer(step.pointer ?? null), reduced ? 50 : 450);
-      }
-      speakForProfile(step.say);
-    },
-    [profile, reduced, speakForProfile],
-  );
 
   // Guard against double-advancing (Enter + click + gate all racing).
   const advancingRef = useRef(false);
@@ -355,6 +401,139 @@ export default function Companion({
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  /**
+   * Drawing finished (or never got going): land the mascot beside what it just
+   * drew, pop the bubble from its mouth there, and say the step out loud.
+   */
+  const finishDraw = useCallback(
+    (token: number) => {
+      if (drawTokenRef.current !== token || !drawingRef.current) return;
+      stopFlight();
+      progress.set(1); // leave the annotation fully drawn
+      drawingRef.current = false;
+      setDrawing(false);
+      const m = modeRef.current;
+      if (m.kind !== "plan") return;
+      const step = m.plan.steps[m.index];
+      const spot = gateSpot(step);
+      const el = spot
+        ? document.querySelector<HTMLElement>(`[data-spot="${CSS.escape(spot)}"]`)
+        : null;
+      const r = el?.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let tx = x.get();
+      let ty = y.get();
+      if (r) {
+        // perch beside the target: right if there's room, else left
+        tx =
+          r.right + SIZE + 40 < vw
+            ? r.right + 24
+            : Math.max(8, r.left - SIZE - 24);
+        ty = r.top + r.height / 2 - SIZE / 2;
+      }
+      const below = ty + SIZE + BUBBLE_H + 16 < vh;
+      setBubbleSide(below ? "below" : "above");
+      tx = Math.min(Math.max(tx, 8), vw - SIZE - 8);
+      ty = below
+        ? Math.min(Math.max(ty, 8), vh - SIZE - 8)
+        : Math.max(ty, BUBBLE_H + 24);
+      x.set(tx);
+      y.set(ty);
+      speakAloud(step.say);
+    },
+    [stopFlight, progress, x, y, speakAloud],
+  );
+
+  /**
+   * AnnotationLayer measured its strokes: ride the pen tip. The mascot's x/y
+   * follow pointAt(t) while the same progress value reveals the strokes, so
+   * the drawing literally comes out of the mascot's crayon.
+   */
+  const handleGeometry = useCallback(
+    (g: StrokeGeometry) => {
+      const token = drawTokenRef.current;
+      if (!drawingRef.current || tracedTokenRef.current === token) return;
+      tracedTokenRef.current = token;
+      progress.set(0);
+      const duration = Math.min(2.4, Math.max(0.8, g.total / 650));
+      controlsRef.current.push(
+        animate(progress, 1, {
+          duration,
+          ease: "easeInOut",
+          onUpdate: (t) => {
+            const p = g.pointAt(t);
+            x.set(p.x - PEN.x);
+            y.set(p.y - PEN.y);
+          },
+          onComplete: () => finishDraw(token),
+        }),
+      );
+    },
+    [progress, x, y, finishDraw],
+  );
+
+  const showStep = useCallback(
+    (plan: HelpPlan, index: number) => {
+      setMode({ kind: "plan", plan, index });
+      setPointer(null);
+      setShowSkip(false);
+      setDiagramOpen(true);
+      stopFlight();
+      const step = plan.steps[index];
+
+      const spot = step.pointer ? gateSpot(step) : undefined;
+      const el = spot
+        ? document.querySelector<HTMLElement>(`[data-spot="${CSS.escape(spot)}"]`)
+        : null;
+      if (profile !== "blind" && step.pointer && el) {
+        el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      }
+
+      // Full performance (fly + trace) only when there's something to draw
+      // and motion is welcome; otherwise annotate in place as before.
+      const perform = profile !== "blind" && !reduced && !!step.pointer && !!el;
+      if (!perform) {
+        if (profile !== "blind" && step.pointer) {
+          setTimeout(() => setPointer(step.pointer ?? null), reduced ? 50 : 450);
+        }
+        speakAloud(step.say);
+        return;
+      }
+
+      drawingRef.current = true;
+      setDrawing(true);
+      const token = ++drawTokenRef.current;
+      // wait for the smooth scroll to settle before measuring anything
+      setTimeout(() => {
+        if (drawTokenRef.current !== token || !drawingRef.current) return;
+        const r = el!.getBoundingClientRect();
+        // fly to the target, crayon at the ready
+        controlsRef.current.push(
+          animate(x, Math.max(8, r.left - SIZE - 12), {
+            type: "spring",
+            stiffness: 140,
+            damping: 17,
+          }),
+          animate(y, Math.max(8, r.top - SIZE - 4), {
+            type: "spring",
+            stiffness: 140,
+            damping: 17,
+          }),
+        );
+        progress.set(0);
+        setPointer(step.pointer ?? null); // AnnotationLayer measures → handleGeometry traces
+        // if no strokes materialise (missing spot etc.), don't leave the kid waiting
+        setTimeout(() => {
+          if (drawTokenRef.current === token && tracedTokenRef.current !== token) {
+            finishDraw(token);
+          }
+        }, 1000);
+      }, 450);
+    },
+    [profile, reduced, speakAloud, stopFlight, progress, x, y, finishDraw],
+  );
 
   const advance = useCallback(
     (plan: HelpPlan, index: number) => {
@@ -376,14 +555,14 @@ export default function Companion({
             profile === "adhd"
               ? "BOOM — you powered through it. Go get the next one!"
               : "Nice thinking — now finish it off yourself. You've got this!";
-          speakForProfile(cheer);
+          speakAloud(cheer);
           setTimeout(() => {
             setMode((m) => (m.kind === "done" ? { kind: "follow" } : m));
           }, 2600);
         }
       }, 800);
     },
-    [flashHappy, showStep, profile, speakForProfile],
+    [flashHappy, showStep, profile, speakAloud],
   );
 
   const runHelp = useCallback(
@@ -535,7 +714,13 @@ export default function Companion({
 
   return (
     <>
-      {showAnnotations && <AnnotationLayer pointer={pointer ?? null} />}
+      {showAnnotations && (
+        <AnnotationLayer
+          pointer={pointer ?? null}
+          progress={reduced ? undefined : progress}
+          onGeometry={handleGeometry}
+        />
+      )}
       {showAnnotations && step?.diagram && diagramOpen && (
         <DiagramCanvas
           diagram={step.diagram}
@@ -549,14 +734,43 @@ export default function Companion({
         type="button"
         onClick={() => (bubbleOpen ? close() : openAsk())}
         aria-label={bubbleOpen ? "Close helper" : "Ask the helper (or press /)"}
-        style={{ x: sx, y: sy }}
-        className="fixed left-0 top-0 z-50 size-16 rounded-3xl bg-gradient-to-br from-blue-500 to-violet-600 p-1 shadow-lg shadow-blue-500/40 focus:outline-2 focus:outline-offset-2 focus:outline-blue-600"
+        style={{ x: sx, y: sy, rotate: reduced ? 0 : lean }}
+        className="fixed left-0 top-0 z-[70] size-16 rounded-3xl bg-gradient-to-br from-blue-500 to-violet-600 p-1 shadow-lg shadow-blue-500/40 focus:outline-2 focus:outline-offset-2 focus:outline-blue-600"
       >
-        <MascotFace expression={expression} pupilOffset={pupil} />
+        <motion.div
+          key={wobble}
+          animate={
+            wobble && !reduced ? { rotate: [0, -14, 12, -9, 6, 0] } : { rotate: 0 }
+          }
+          transition={{ duration: 0.5 }}
+          className="size-full"
+        >
+          <MascotFace
+            expression={expression}
+            pupilOffset={pupil}
+            speaking={speaking}
+          />
+        </motion.div>
+        {drawing && (
+          <span
+            aria-hidden="true"
+            className="absolute -bottom-2 -right-2 rotate-90 text-xl"
+          >
+            ✏️
+          </span>
+        )}
       </motion.button>
 
       {bubbleOpen && (
-        <SpeechBubble profile={profile} onClose={close}>
+        <SpeechBubble
+          // remount on side flip: framer keeps stale top/bottom inline styles
+          key={bubbleSide}
+          profile={profile}
+          onClose={close}
+          mx={sx}
+          my={sy}
+          side={bubbleSide}
+        >
           {mode.kind === "ask" && (
             <div className="space-y-3">
               <label htmlFor="helper-q" className="text-sm text-neutral-700">

@@ -16,7 +16,9 @@ const FLIP_COUNT = 4;
 /**
  * Watches for signs the student is stuck: frantic mouse shaking, long idles,
  * repeated wrong MCQ answers ("hw:answer" CustomEvent) and rapid card
- * flip-flopping. Fires at most one trigger per cardKey; paused via `enabled`.
+ * flip-flopping. Mouse-shake is the advertised "help me" gesture, so it can
+ * re-fire (with a cooldown); the passive signals fire at most once per
+ * cardKey. Paused via `enabled`.
  */
 export function useConfusionDetector({
   cardKey,
@@ -37,11 +39,19 @@ export function useConfusionDetector({
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrongCountsRef = useRef<Record<string, number>>({});
   const flipTimesRef = useRef<number[]>([]);
+  const lastShakeRef = useRef(0);
 
   const fire = useCallback((reason: ConfusionTrigger["reason"]) => {
     const key = cardKeyRef.current;
-    if (!enabledRef.current || firedRef.current.has(key)) return;
-    firedRef.current.add(key);
+    if (!enabledRef.current) return;
+    if (reason === "mouse-shake") {
+      const now = Date.now();
+      if (now - lastShakeRef.current < 8_000) return;
+      lastShakeRef.current = now;
+    } else {
+      if (firedRef.current.has(key)) return;
+      firedRef.current.add(key);
+    }
     setTrigger({ reason });
   }, []);
 

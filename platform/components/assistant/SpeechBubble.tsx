@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import {
+  motion,
+  useReducedMotion,
+  useTransform,
+  type MotionValue,
+} from "framer-motion";
 import { Sparkles, X } from "lucide-react";
 import type { Profile } from "@/lib/types";
+
+const MASCOT_SIZE = 64;
+const GAP = 14; // space between mascot and bubble
+
+export type BubbleSide = "above" | "below";
 
 /**
  * Typewriter text ~30 chars/s. Renders instantly under reduced motion or for
@@ -52,23 +62,52 @@ export function Typewriter({
 }
 
 /**
- * The mascot's speech bubble. The mascot docks bottom-right while any bubble
- * is open, so the bubble sits just above it with a CSS-triangle tail pointing
- * down toward the mascot's mouth.
+ * The mascot's speech bubble. It is anchored to the mascot's live spring
+ * position (`mx`/`my` are the same MotionValues that place the mascot), so it
+ * grows out of the mascot's mouth wherever it happens to be — never a fixed
+ * corner. `side` picks whether it opens above or below the face, and the
+ * CSS-triangle tail slides along the bubble edge to keep pointing at the
+ * mouth even as the bubble clamps to the viewport.
  */
 export default function SpeechBubble({
   profile,
   label = "Homework helper",
+  mx,
+  my,
+  side,
   onClose,
   children,
 }: {
   profile: Profile;
   label?: string;
+  mx: MotionValue<number>;
+  my: MotionValue<number>;
+  side: BubbleSide;
   onClose: () => void;
   children: ReactNode;
 }) {
   const reduced = useReducedMotion();
   const wide = profile === "deaf";
+  const width = wide ? 416 : 352;
+
+  const clampLeft = (mascotX: number) => {
+    const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
+    return Math.min(
+      Math.max(mascotX + MASCOT_SIZE / 2 - width * 0.75, 8),
+      Math.max(8, vw - width - 8),
+    );
+  };
+
+  const left = useTransform(mx, clampLeft);
+  const top = useTransform(my, (Y: number) => Y + MASCOT_SIZE + GAP);
+  const bottom = useTransform(my, (Y: number) => {
+    const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+    return vh - Y + GAP;
+  });
+  // tail slides so its tip stays over the mascot's mouth (face centre-x)
+  const tailLeft = useTransform(mx, (X: number) =>
+    Math.min(Math.max(X + MASCOT_SIZE / 2 - 11 - clampLeft(X), 14), width - 36),
+  );
 
   return (
     <motion.div
@@ -77,23 +116,53 @@ export default function SpeechBubble({
       {...(reduced
         ? {}
         : {
-            initial: { opacity: 0, y: 12, scale: 0.96 },
-            animate: { opacity: 1, y: 0, scale: 1 },
+            initial: {
+              opacity: 0,
+              scale: 0.8,
+              y: side === "above" ? 10 : -10,
+            },
+            animate: { opacity: 1, scale: 1, y: 0 },
             transition: { type: "spring", stiffness: 380, damping: 28 },
           })}
-      className={`fixed bottom-28 right-6 z-50 max-w-[calc(100vw-3rem)] rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl ${
-        wide ? "w-[26rem] text-lg" : "w-[22rem]"
+      style={{
+        left,
+        width,
+        ...(side === "below" ? { top } : { bottom }),
+        transformOrigin: side === "below" ? "20% -12px" : "20% calc(100% + 12px)",
+      }}
+      className={`fixed z-50 max-w-[calc(100vw-1rem)] rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl ${
+        wide ? "text-lg" : ""
       }`}
     >
-      {/* tail pointing down-right toward the mascot's mouth */}
-      <div
-        aria-hidden="true"
-        className="absolute -bottom-[11px] right-10 h-0 w-0 border-x-[11px] border-t-[12px] border-x-transparent border-t-neutral-200"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute -bottom-[9px] right-[41px] h-0 w-0 border-x-[10px] border-t-[11px] border-x-transparent border-t-white"
-      />
+      {side === "above" ? (
+        <>
+          {/* tail pointing down toward the mascot's mouth */}
+          <motion.div
+            aria-hidden="true"
+            style={{ left: tailLeft }}
+            className="absolute -bottom-[11px] h-0 w-0 border-x-[11px] border-t-[12px] border-x-transparent border-t-neutral-200"
+          />
+          <motion.div
+            aria-hidden="true"
+            style={{ left: tailLeft, marginLeft: 1 }}
+            className="absolute -bottom-[9px] h-0 w-0 border-x-[10px] border-t-[11px] border-x-transparent border-t-white"
+          />
+        </>
+      ) : (
+        <>
+          {/* tail pointing up toward the mascot's mouth */}
+          <motion.div
+            aria-hidden="true"
+            style={{ left: tailLeft }}
+            className="absolute -top-[11px] h-0 w-0 border-x-[11px] border-b-[12px] border-x-transparent border-b-neutral-200"
+          />
+          <motion.div
+            aria-hidden="true"
+            style={{ left: tailLeft, marginLeft: 1 }}
+            className="absolute -top-[9px] h-0 w-0 border-x-[10px] border-b-[11px] border-x-transparent border-b-white"
+          />
+        </>
+      )}
 
       <div className="mb-3 flex items-center justify-between">
         <p className="inline-flex items-center gap-2 text-sm font-bold text-violet-700">

@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  motion,
+  useReducedMotion,
+  useTransform,
+  type MotionValue,
+} from "framer-motion";
 import rough from "roughjs/bin/rough";
 import type { Options } from "roughjs/bin/core";
 import type { HelpPointer, PointerEnd } from "@/lib/types";
@@ -191,16 +196,77 @@ function buildPaths(pointer: HelpPointer, seed: number): RenderedPath[] {
   return out;
 }
 
+export interface StrokeGeometry {
+  /** viewport-pixel pen-tip position at overall draw progress t ∈ [0,1] */
+  pointAt: (t: number) => Pt;
+  /** total stroke length in px (for picking a draw duration) */
+  total: number;
+}
+
+/** Normalised slice of the overall 0→1 progress owned by one stroke path. */
+interface Seg {
+  start: number;
+  len: number;
+}
+
+/**
+ * One stroke revealed by its slice of the shared draw progress. `seg` is
+ * undefined while lengths are still being measured (hidden), or null for
+ * fill-only paths (which fade in as the pen works).
+ */
+function TracedPath({
+  p,
+  seg,
+  progress,
+  innerRef,
+}: {
+  p: RenderedPath;
+  seg: Seg | null | undefined;
+  progress: MotionValue<number>;
+  innerRef: (el: SVGPathElement | null) => void;
+}) {
+  const pathLength = useTransform(progress, (t) =>
+    seg ? Math.max(0.001, Math.min(1, (t - seg.start) / seg.len)) : 1,
+  );
+  const opacity = useTransform(progress, (t) => {
+    if (seg === undefined) return 0; // not measured yet
+    if (seg === null) {
+      // fill pass: fade in over the middle of the draw
+      return t <= 0.35 ? 0 : Math.min(1, (t - 0.35) / 0.3) * p.opacity;
+    }
+    return t >= seg.start ? p.opacity : 0;
+  });
+  return (
+    <motion.path
+      ref={innerRef}
+      d={p.d}
+      fill={p.fill}
+      stroke={p.stroke === "none" ? undefined : p.stroke}
+      strokeWidth={p.strokeWidth}
+      strokeLinecap="round"
+      style={p.stroke === "none" ? { opacity } : { pathLength, opacity }}
+    />
+  );
+}
+
 /**
  * Full-viewport overlay where the mascot draws hand-sketched (rough.js)
  * pointers: circles, underlines, hachure regions and arrows. Coordinates are
  * viewport pixels (position: fixed); target rects are re-measured on
  * scroll/resize with rAF throttling.
+ *
+ * When `progress` is provided, strokes reveal sequentially as it goes 0→1 and
+ * `onGeometry` reports a `pointAt(t)` sampler so the mascot can ride the pen
+ * tip. Without it, strokes self-animate as before.
  */
 export default function AnnotationLayer({
   pointer,
+  progress,
+  onGeometry,
 }: {
   pointer: HelpPointer | null;
+  progress?: MotionValue<number>;
+  onGeometry?: (geometry: StrokeGeometry) => void;
 }) {
   const reduced = useReducedMotion();
   const [tick, setTick] = useState(0);
@@ -232,6 +298,51 @@ export default function AnnotationLayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pointer, seed, tick]);
 
+  // --- pen-tip tracing (only when a shared progress value is supplied) ------
+  const pathRefs = useRef<(SVGPathElement | null)[]>([]);
+  const [segs, setSegs] = useState<(Seg | null)[]>([]);
+  const traced = !!progress && !reduced;
+
+  useLayoutEffect(() => {
+    if (!traced || paths.length === 0) return;
+    const els = pathRefs.current;
+    // stroke paths carry the pen; fill passes (hachure) just fade in
+    const lens = paths.map((p, i) =>
+      p.stroke !== "none" && els[i] ? els[i]!.getTotalLength() : 0,
+    );
+    const total = lens.reduce((a, b) => a + b, 0);
+    if (!total) return;
+    let acc = 0;
+    setSegs(
+      lens.map((l) => {
+        const seg = l ? { start: acc / total, len: l / total } : null;
+        acc += l;
+        return seg;
+      }),
+    );
+    const strokeEls: SVGPathElement[] = [];
+    const strokeLens: number[] = [];
+    paths.forEach((_, i) => {
+      if (lens[i] && els[i]) {
+        strokeEls.push(els[i]!);
+        strokeLens.push(lens[i]);
+      }
+    });
+    const pointAt = (t: number): Pt => {
+      let d = Math.min(1, Math.max(0, t)) * total;
+      for (let i = 0; i < strokeEls.length; i++) {
+        if (d <= strokeLens[i] || i === strokeEls.length - 1) {
+          const pt = strokeEls[i].getPointAtLength(Math.min(d, strokeLens[i]));
+          return { x: pt.x, y: pt.y };
+        }
+        d -= strokeLens[i];
+      }
+      return { x: 0, y: 0 };
+    };
+    onGeometry?.({ pointAt, total });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paths, traced, onGeometry]);
+
   if (!pointer || paths.length === 0) return null;
 
   return (
@@ -239,28 +350,40 @@ export default function AnnotationLayer({
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-[60] h-full w-full"
     >
-      {paths.map((p, i) => (
-        <motion.path
-          key={`${seed}-${i}`}
-          d={p.d}
-          fill={p.fill}
-          stroke={p.stroke === "none" ? undefined : p.stroke}
-          strokeWidth={p.strokeWidth}
-          strokeLinecap="round"
-          opacity={p.opacity}
-          {...(reduced
-            ? {}
-            : {
-                initial: { pathLength: 0 },
-                animate: { pathLength: 1 },
-                transition: {
-                  duration: 0.6,
-                  delay: Math.min(i * 0.05, 0.4),
-                  ease: "easeOut" as const,
-                },
-              })}
-        />
-      ))}
+      {paths.map((p, i) =>
+        traced ? (
+          <TracedPath
+            key={`${seed}-${i}`}
+            p={p}
+            seg={segs[i]}
+            progress={progress!}
+            innerRef={(el) => {
+              pathRefs.current[i] = el;
+            }}
+          />
+        ) : (
+          <motion.path
+            key={`${seed}-${i}`}
+            d={p.d}
+            fill={p.fill}
+            stroke={p.stroke === "none" ? undefined : p.stroke}
+            strokeWidth={p.strokeWidth}
+            strokeLinecap="round"
+            opacity={p.opacity}
+            {...(reduced
+              ? {}
+              : {
+                  initial: { pathLength: 0 },
+                  animate: { pathLength: 1 },
+                  transition: {
+                    duration: 0.6,
+                    delay: Math.min(i * 0.05, 0.4),
+                    ease: "easeOut" as const,
+                  },
+                })}
+          />
+        ),
+      )}
     </svg>
   );
 }
